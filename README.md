@@ -20,7 +20,7 @@ El objetivo es construir un chatbot especializado en responder preguntas de doce
 ## ▶️ Cómo ejecutar
 1. Clonar repositorio
    ```bash
-   git clone [https://github.com/BartClo/ProyectoIngSoftware.git]
+   git clone https://github.com/BartClo/ProyectoIngSoftware.git
    cd proyecto-chatbot
 
 2. Levantar servicios con Docker
