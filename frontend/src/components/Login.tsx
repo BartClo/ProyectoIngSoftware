@@ -10,7 +10,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailRegex = /^[a-zA-Z0-9._%+-]+@docente\.uss\.cl$/;
     if (!emailRegex.test(email)) {
@@ -22,7 +22,31 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return;
     }
     setError('');
-    onLogin();
+
+    const body = new URLSearchParams();
+    body.append('username', email); // El backend espera un 'username'
+    body.append('password', password);
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('access_token', data.access_token);
+        onLogin(); // Llama a la función solo si el login es exitoso
+      } else {
+        // El backend envió un error (ej. 401 Unauthorized)
+        setError('Credenciales inválidas');
+      }
+    } catch (err) {
+      setError('No se pudo conectar con el servidor.');
+    }
   };
 
   return (
