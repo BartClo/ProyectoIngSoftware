@@ -1,69 +1,108 @@
-# React + TypeScript + Vite
+# Asistente IA USS - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Descripción
 
-Currently, two official plugins are available:
+Este proyecto es la interfaz de usuario para el Asistente IA de la Universidad San Sebastián. La aplicación proporciona una interfaz de chat interactiva que permite a los usuarios (principalmente profesores) realizar consultas y recibir respuestas del asistente virtual.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Requisitos previos
 
-## Expanding the ESLint configuration
+- [Node.js](https://nodejs.org/) (versión 16 o superior)
+- [npm](https://www.npmjs.com/) (incluido con Node.js)
+- Conexión a Internet para descargar las dependencias
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Instalación
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Sigue estos pasos para instalar y configurar el proyecto en tu entorno local:
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+1. Clona el repositorio desde GitHub:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+git clone https://github.com/BartClo/ProyectoIngSoftware.git
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Cambia al directorio del frontend:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd ProyectoIngSoftware/frontend
 ```
+
+3. Cambia a la rama feature/frontend:
+
+```bash
+git checkout feature/frontend
+```
+
+4. Instala las dependencias del proyecto:
+
+```bash
+npm install
+```
+
+## Ejecución del proyecto
+
+Una vez instaladas las dependencias, puedes iniciar el servidor de desarrollo con el siguiente comando:
+
+```bash
+npm run dev
+```
+
+Esto iniciará la aplicación en modo de desarrollo. Abre [http://localhost:5173](http://localhost:5173) en tu navegador para verla.
+```
+
+## Estructura del proyecto
+
+El proyecto está estructurado de la siguiente manera:
+
+- `src/`: Directorio principal del código fuente
+  - `assets/`: Imágenes y recursos gráficos
+  - `components/`: Componentes React organizados por funcionalidad
+    - `auth/`: Componentes relacionados con la autenticación
+    - `chat/`: Componentes para la interfaz de chat
+    - `dashboard/`: Componentes para el panel principal
+    - `settings/`: Componentes para la configuración
+  - `App.tsx`: Componente principal que gestiona la navegación y el estado
+  - `main.tsx`: Punto de entrada de la aplicación
+
+## Inicio de sesión
+
+Para acceder a la aplicación, usa un correo electrónico con dominio `@docente.uss.cl`. La validación del correo está implementada, pero actualmente no hay una verificación real con backend, por lo que cualquier contraseña funcionará.
+
+## Características principales
+
+- **Autenticación**: Inicio de sesión con correo institucional
+- **Interfaz de chat**: Envía y recibe mensajes con el asistente IA
+- **Historial de conversaciones**: Guarda y gestiona conversaciones previas
+- **Feedback**: Posibilidad de calificar las respuestas del asistente
+
+## Construcción para producción
+
+Para crear una versión optimizada para producción, ejecuta:
+
+```bash
+npm run build
+```
+
+Los archivos generados se almacenarán en el directorio `dist/`.
+
+## Tecnologías utilizadas
+
+- [React](https://reactjs.org/) - Biblioteca JavaScript para construir interfaces de usuario
+- [TypeScript](https://www.typescriptlang.org/) - Superset tipado de JavaScript
+- [Vite](https://vitejs.dev/) - Herramienta de construcción y servidor de desarrollo
+
+## Problemas conocidos
+
+- La aplicación actualmente utiliza datos simulados para las respuestas del asistente IA
+- No hay persistencia de datos entre sesiones
+- La funcionalidad de feedback es demostrativa
+
+## Contribución
+
+Si deseas contribuir a este proyecto, por favor:
+
+1. Haz un fork del repositorio
+2. Crea una rama para tu característica (`git checkout -b feature/nueva-funcionalidad`)
+3. Realiza tus cambios y haz commits (`git commit -m 'Añadir nueva funcionalidad'`)
+4. Sube tu rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
+
