@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+passlib[bcrypt]
+pydantic
+python-multipart
+google-generativeai
+faiss-cpu
+numpy
+langchain
+langchain-community
+langchain-openai
+pypdf
+pypdfium2
+pytesseract
+Pillow
