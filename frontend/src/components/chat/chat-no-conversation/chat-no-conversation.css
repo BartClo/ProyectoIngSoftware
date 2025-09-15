@@ -1,0 +1,276 @@
+/* chat-interface.css */
+.chat-interface {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.chat-sidebar-container {
+  width: 250px;
+  background-color: #002855;
+  color: white;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.chat-sidebar-container.closed {
+  transform: translateX(-100%);
+}
+
+.chat-main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  justify-content: center; /* Centrar verticalmente el contenido */
+  background-color: white; /* Fondo blanco añadido */
+}
+
+.chat-header {
+  background-color: #f1f1f1;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #ddd;
+}
+
+.chat-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #002855;
+}
+
+.messages-container {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  position: relative;
+}
+
+.empty-chat-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+}
+
+.empty-chat-icon {
+  font-size: 50px;
+  margin-bottom: 10px;
+}
+
+.message-date-separator {
+  text-align: center;
+  margin: 10px 0;
+  color: #999;
+  font-size: 14px;
+}
+
+.message {
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+
+.user-message {
+  align-self: flex-end;
+}
+
+.ai-message {
+  align-self: flex-start;
+}
+
+.message-content {
+  padding: 10px 15px;
+  border-radius: 10px;
+  position: relative;
+  line-height: 1.4;
+}
+
+.user-message .message-content {
+  background-color: #dcf8c6;
+  color: #333;
+}
+
+.ai-message .message-content {
+  background-color: #f1f1f1;
+  color: #333;
+}
+
+.message-timestamp {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #666;
+  align-self: flex-end;
+}
+
+.message-input-container {
+  padding: 10px 20px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  background-color: #fff;
+}
+
+.message-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.message-input:focus {
+  border-color: #002855;
+}
+
+.send-button {
+  background-color: #1a5dad;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 20px;
+  font-size: 14px;
+  margin-left: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.send-button:hover {
+  background-color: #155a8a;
+}
+
+.send-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Centrar mejor el contenido horizontalmente */
+.chat-no-conversation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  padding: 0 20px; /* Añadir padding horizontal para evitar pegarse a los bordes */
+  background-color: white; /* Fondo blanco añadido */
+}
+
+.no-conversation-content {
+  text-align: center;
+  max-width: 500px;
+  padding: 20px;
+  margin: 0 auto; /* Centrar horizontalmente */
+  animation: fadeIn 0.5s ease-out; /* Añadir animación de aparición */
+  background-color: white; /* Fondo blanco añadido */
+}
+
+/* Aumentar ligeramente el tamaño de los elementos para ocupar mejor el espacio */
+.no-conversation-icon {
+  margin-bottom: 30px; /* Aumentar espacio inferior */
+  display: flex;
+  justify-content: center;
+}
+
+.no-conversation-icon img {
+  width: 100px; /* Aumentar tamaño */
+  height: 100px; /* Aumentar tamaño */
+}
+
+/* Mejorar el estilo del título */
+.no-conversation-content h2 {
+  font-size: 28px; /* Aumentar tamaño */
+  color: #1a5dad;
+  margin-bottom: 20px; /* Aumentar espacio */
+}
+
+/* Mejorar el estilo del párrafo */
+.no-conversation-content p {
+  font-size: 18px; /* Aumentar tamaño */
+  color: #555;
+  margin-bottom: 30px; /* Aumentar espacio */
+  line-height: 1.5;
+  max-width: 400px; /* Limitar ancho para mejor legibilidad */
+  margin-left: auto; /* Centrar */
+  margin-right: auto; /* Centrar */
+}
+
+/* Mejorar el estilo del botón */
+.start-conversation-button {
+  background-color: #1a5dad;
+  color: white;
+  border: none;
+  padding: 14px 28px; /* Aumentar padding */
+  border-radius: 6px;
+  font-size: 18px; /* Aumentar tamaño */
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(26, 93, 173, 0.3);
+  display: inline-block; /* Asegurar que se centra correctamente */
+}
+
+/* Asegurarse de que el contenedor principal ocupa todo el espacio disponible */
+.chat-main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  justify-content: center; /* Centrar verticalmente el contenido */
+  background-color: white; /* Fondo blanco añadido */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
