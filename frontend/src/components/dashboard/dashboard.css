@@ -1,0 +1,46 @@
+/* dashboard.css */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.dashboard-content {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  background-color: #002855; /* Color azul USS correcto */
+  border: none; /* Eliminé 'red' y puse 'none' para quitar el borde */
+  box-shadow: none; /* Corregí el valor de box-shadow */
+}
+
+/* Evitar desplazamiento cuando se abren modales */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Eliminar desplazamiento innecesario */
+html, body {
+  overflow: hidden;
+}
+
+/* Asegurar que el contenido ocupe todo el espacio disponible */
+#root, .app-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Estilos para pantallas pequeñas */
+@media (max-width: 480px) {
+  .dashboard-container {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+  }
+}
