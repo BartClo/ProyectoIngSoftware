@@ -3,10 +3,6 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-<<<<<<< Updated upstream
-from typing import Annotated
-from pydantic import BaseModel # Esta línea es la que faltaba
-=======
 from typing import Annotated, List, Tuple, Dict, Optional
 from pydantic import BaseModel
 import os
@@ -15,9 +11,7 @@ import pickle
 from datetime import datetime, timedelta
 
 import numpy as np
->>>>>>> Stashed changes
 
-# Importa las clases y funciones de los archivos que acabas de crear
 from database import Base, engine, get_db
 from models import User as UserModel
 from models import Conversation as ConversationModel
@@ -26,22 +20,16 @@ from models import Message as MessageModel
 # JWT
 from jose import JWTError, jwt
 
-<<<<<<< Updated upstream
-# Crea la aplicación FastAPI
-=======
 # Gemini
-from google.generativeai import GenerativeModel
 import google.generativeai as genai
 
 # FAISS
 import faiss
 
->>>>>>> Stashed changes
 app = FastAPI()
 
-# Configuración de CORS para permitir la comunicación con el frontend
 origins = [
-    "http://localhost:5173",  # La dirección de tu frontend
+    "http://localhost:5173",  # frontend (Vite/React)
 ]
 
 app.add_middleware(
@@ -52,15 +40,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuración de passlib para el hash de contraseñas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-<<<<<<< Updated upstream
-# Crea las tablas en la base de datos si no existen
-Base.metadata.create_all(bind=engine)
-
-# Pydantic model para los datos de registro
-=======
 # Seguridad / JWT
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME_SECRET")
 ALGORITHM = "HS256"
@@ -70,32 +51,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
 Base.metadata.create_all(bind=engine)
 
 # --------------- Pydantic Schemas ------------------
->>>>>>> Stashed changes
 class UserCreate(BaseModel):
     email: str
     password: str
 
-<<<<<<< Updated upstream
-# Endpoint de registro
-@app.post("/register/")
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(UserModel).filter(UserModel.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = pwd_context.hash(user.password)
-    new_user = UserModel(email=user.email, password_hash=hashed_password)
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return {"message": "Usuario registrado exitosamente"}
-
-# Endpoint de login
-@app.post("/login/")
-def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(get_db)):
-    user = db.query(UserModel).filter(UserModel.email == form_data.username).first()
-    if not user or not pwd_context.verify(form_data.password, user.password_hash):
-=======
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -281,6 +240,7 @@ def build_faiss_from_context() -> Tuple[Optional[faiss.IndexFlatIP], Dict[int, s
     return index, docstore
 
 SIMILARITY_THRESHOLD = 0.05
+AI_PLACEHOLDER_RESPONSE = "Esperando respuesta del asistente..."
 
 
 def _is_generic_query(text: str) -> bool:
@@ -351,14 +311,10 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(get_db)):
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
->>>>>>> Stashed changes
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales inválidas",
         )
-<<<<<<< Updated upstream
-    return {"access_token": user.email, "token_type": "bearer"}
-=======
     access_token = create_access_token({"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -474,12 +430,7 @@ async def send_message(
 
     # Lógica RAG
     if _is_generic_query(user_text):
-        topics = _topic_suggestions(docstore)
-        system_msg = (
-            "Responde únicamente basándote en los documentos cargados. "
-            "Si algo no está en el contexto, di explícitamente que no lo sabes."
-        )
-        ai_text = "Aquí tienes algunos temas disponibles:\n- " + "\n- ".join(topics)
+        ai_text = AI_PLACEHOLDER_RESPONSE
         ai_msg = MessageModel(conversation_id=conv.id, sender="ai", text=ai_text)
         db.add(ai_msg)
         conv.updated_at = datetime.utcnow()
@@ -507,8 +458,7 @@ async def send_message(
     context_docs = [docstore[idx] for _, idx in context_pairs]
 
     if not context_docs:
-        topics = _topic_suggestions(docstore)
-        ai_text = "⚠️ No se encontró una respuesta en el contexto. Prueba con alguno de estos temas:\n- " + "\n- ".join(topics)
+        ai_text = AI_PLACEHOLDER_RESPONSE
         ai_msg = MessageModel(conversation_id=conv.id, sender="ai", text=ai_text)
         db.add(ai_msg)
         conv.updated_at = datetime.utcnow()
@@ -533,7 +483,7 @@ async def send_message(
     ai_text = getattr(response, "text", "") or ""
 
     if not ai_text:
-        ai_text = "No lo sé con la información disponible"
+        ai_text = AI_PLACEHOLDER_RESPONSE
 
     # Guardar mensaje de la IA
     ai_msg = MessageModel(conversation_id=conv.id, sender="ai", text=ai_text)
@@ -614,4 +564,3 @@ async def debug_retrieve(req: MessageCreate):
         for score, idx in pairs
     ]
     return {"pairs": preview}
->>>>>>> Stashed changes

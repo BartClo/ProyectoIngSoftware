@@ -7,11 +7,8 @@ from database import Base
 
 class User(Base):
     __tablename__ = "users"
+
     id = Column(Integer, primary_key=True, index=True)
-<<<<<<< Updated upstream
-    email = Column(String, unique=True, index=True)
-    password_hash = Column(String)
-=======
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
 
@@ -52,4 +49,3 @@ class Message(Base):
 
     # Relaciones
     conversation = relationship("Conversation", back_populates="messages")
->>>>>>> Stashed changes

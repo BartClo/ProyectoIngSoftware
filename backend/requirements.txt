@@ -4,5 +4,16 @@ python-dotenv
 uvicorn
 sqlalchemy
 psycopg2-binary
-python-jose[cryptography]
 passlib[bcrypt]
+pydantic
+python-multipart
+google-generativeai
+faiss-cpu
+numpy
+langchain
+langchain-community
+langchain-openai
+pypdf
+pypdfium2
+pytesseract
+Pillow
