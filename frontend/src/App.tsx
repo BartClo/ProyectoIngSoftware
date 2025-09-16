@@ -1,18 +1,5 @@
 import { useState } from 'react';
 import './App.css';
-<<<<<<< Updated upstream
-import Login from './components/Login';
-import Chatbot from './components/Chatbot';
-
-function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  return isLoggedIn ? (
-    <Chatbot />
-  ) : (
-    <Login onLogin={() => setIsLoggedIn(true)} />
-  );
-=======
 import Login from './components/auth/login';
 import Dashboard from './components/dashboard/dashboard';
 import { ThemeProvider } from './components/theme/theme-context';
@@ -42,7 +29,6 @@ function App() {
         )}
       </div>
     </ThemeProvider>);
->>>>>>> Stashed changes
 }
 
 export default App
