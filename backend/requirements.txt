@@ -1,4 +1,6 @@
 fastapi
+python-jose[cryptography]
+python-dotenv
 uvicorn
 sqlalchemy
 psycopg2-binary
