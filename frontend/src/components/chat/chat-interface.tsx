@@ -86,7 +86,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ email, onLogout }) => {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh" }}>
         {/* Header */}
         <DashboardHeader
-          email={email}
+          userEmail={email}
           onHelp={() => alert("Ayuda")}
           onSettings={() => alert("Configuración")}
           onLogout={onLogout}
