@@ -1,56 +1,78 @@
-# Asistente IA USS - Frontend
+# Frontend - Chatbot USS
 
-## Descripción
+Frontend del Chatbot para la Universidad San Sebastián desarrollado con React, TypeScript y Vite.
 
-Este proyecto es la interfaz de usuario para el Asistente IA de la Universidad San Sebastián. La aplicación proporciona una interfaz de chat interactiva que permite a los usuarios (principalmente profesores) realizar consultas y recibir respuestas del asistente virtual.
+## ⚙️ Requisitos
 
-## Requisitos previos
+- Node.js 18+
+- npm o yarn
+- Backend API funcionando
 
-- [Node.js](https://nodejs.org/) (versión 16 o superior)
-- [npm](https://www.npmjs.com/) (incluido con Node.js)
-- Conexión a Internet para descargar las dependencias
+## 🚀 Inicio Rápido
 
-## Instalación
+### Desarrollo Local
 
-Sigue estos pasos para instalar y configurar el proyecto en tu entorno local:
+1. **Configurar Variables de Entorno**
+   ```bash
+   # Copia el archivo de ejemplo
+   cp .env.example .env
+   
+   # Edita .env con la URL de tu backend:
+   # VITE_API_BASE_URL=http://127.0.0.1:8000  # Para desarrollo local
+   ```
 
-1. Clona el repositorio desde GitHub:
+2. **Instalar Dependencias**
+   ```bash
+   cd frontend
+   npm install
+   ```
 
-```bash
-git clone https://github.com/BartClo/ProyectoIngSoftware.git
-```
+3. **Iniciar el Servidor de Desarrollo**
+   ```bash
+   npm run dev
+   ```
 
-2. Cambia al directorio del frontend:
+La aplicación se ejecutará en `http://localhost:5173`.
 
-```bash
-cd ProyectoIngSoftware/frontend
-```
+## 🚀 Despliegue en Producción
 
-3. Cambia a la rama feature/frontend:
+### Vercel (Frontend)
 
-```bash
-git checkout feature/frontend
-```
+1. **Preparar el Repositorio**
+   - Asegúrate de que todos los cambios estén en Git
+   - El archivo `vercel.json` ya está configurado
 
-4. Instala las dependencias del proyecto:
+2. **Desplegar en Vercel**
+   - Ve a [vercel.com](https://vercel.com) y crea una cuenta
+   - Conecta tu repositorio de GitHub
+   - Selecciona "Import Project"
+   - Configura:
+     - **Framework Preset**: Vite
+     - **Root Directory**: `frontend`
+     - **Build Command**: `npm run build`
+     - **Output Directory**: `dist`
 
-```bash
-npm install
-```
+3. **Configurar Variables de Entorno en Vercel**
+   ```
+   VITE_API_BASE_URL=https://tu-backend-en-render.onrender.com
+   ```
 
-## Ejecución del proyecto
+4. **Configurar Dominio Personalizado (Opcional)**
+   - En el dashboard de Vercel, ve a Settings > Domains
+   - Agrega tu dominio personalizado
 
-Una vez instaladas las dependencias, puedes iniciar el servidor de desarrollo con el siguiente comando:
+### Variables de Entorno Requeridas
 
-```bash
-npm run dev
-```
+- `VITE_API_BASE_URL`: URL del backend API (sin barra final)
 
-Esto iniciará la aplicación en modo de desarrollo. Abre [http://localhost:5173](http://localhost:5173) en tu navegador para verla.
-```
+## 📦 Scripts Disponibles
 
-## Estructura del proyecto
+- `npm run dev`: Inicia el servidor de desarrollo
+- `npm run build`: Construye la aplicación para producción
+- `npm run preview`: Previsualiza la build de producción
+- `npm run lint`: Ejecuta el linter
 
+## 🏗️ Estructura del Proyecto
 El proyecto está estructurado de la siguiente manera:
 
 - `src/`: Directorio principal del código fuente

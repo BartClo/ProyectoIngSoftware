@@ -30,11 +30,23 @@ import google.generativeai as genai
 # FAISS - RAG DESHABILITADO
 # import faiss
 
-app = FastAPI()
+app = FastAPI(
+    title="Chatbot USS API",
+    description="API para el Chatbot de la Universidad San Sebastián",
+    version="1.0.0"
+)
 
 origins = [
-    "http://localhost:5173",  # frontend (Vite/React)
+    "http://localhost:5173",  # frontend local (Vite/React)
+    "http://localhost:3000",  # frontend local alternativo
+    "https://*.vercel.app",   # Vercel deployments
+    "https://chatbot-uss-frontend.vercel.app",  # Tu dominio específico de Vercel
 ]
+
+# Para producción, también permitir todos los dominios de Vercel
+import os
+if os.getenv("ENVIRONMENT") == "production":
+    origins.append("*")  # Solo en producción para simplificar CORS
 
 app.add_middleware(
     CORSMiddleware,
@@ -308,6 +320,22 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 # Variables deshabilitadas para RAG
 index = None
 docstore = {}
+
+# --------------- HEALTH CHECK ------------------
+@app.get("/")
+async def root():
+    """Endpoint raíz para verificar que la API está funcionando"""
+    return {
+        "message": "Chatbot USS API está funcionando",
+        "status": "ok",
+        "version": "1.0.0",
+        "rag_enabled": False
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check para servicios de monitoreo"""
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 # --------------- ENDPOINTS AUTH ------------------
 @app.post("/register/", status_code=201)
