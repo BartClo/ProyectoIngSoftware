@@ -8,6 +8,7 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+.test_gemini.py
 
 # Env
 .env
