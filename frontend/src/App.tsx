@@ -1,30 +1,34 @@
 import { useState } from 'react';
+import './App.css';
 import Login from './components/auth/login';
-import ChatInterface from './components/chat/chat-interface';
+import Dashboard from './components/dashboard/dashboard';
+import { ThemeProvider } from './components/theme/theme-context';
+import './components/theme/theme.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
-
-  const handleLoginSuccess = (email: string) => {
+  const [userEmail, setUserEmail] = useState('');
+  
+  const handleLogin = (email: string) => {
     setUserEmail(email);
     setIsAuthenticated(true);
   };
-
+  
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setUserEmail("");
+    setUserEmail('');
   };
-
+  
   return (
-    <div style={{ minHeight: "100vh", width: "100vw", display: "flex", flexDirection: "column", background: "#f5f9fc" }}>
-      {isAuthenticated ? (
-        <ChatInterface email={userEmail} onLogout={handleLogout} />
-      ) : (
-        <Login onLoginSuccess={handleLoginSuccess} />
-      )}
-    </div>
-  );
+    <ThemeProvider>
+      <div className="app-container">
+        {!isAuthenticated ? (
+          <Login onLogin={handleLogin} />
+        ) : (
+          <Dashboard userEmail={userEmail} onLogout={handleLogout} />
+        )}
+      </div>
+    </ThemeProvider>);
 }
 
-export default App;
+export default App
