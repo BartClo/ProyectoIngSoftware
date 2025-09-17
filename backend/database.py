@@ -11,7 +11,7 @@ except Exception:
     pass
 
 # Leer cadena de conexión desde entorno o usar un valor por defecto local
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:24631111@localhost/mi_proyecto")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:Chelo_2004@localhost/mi_proyecto")
 
 # Configurar engine con pool_pre_ping para reconexiones resilientes
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
