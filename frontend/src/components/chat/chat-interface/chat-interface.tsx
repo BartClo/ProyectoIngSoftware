@@ -10,6 +10,9 @@ import {
   deleteConversation as apiDeleteConversation,
   listMessages as apiListMessages,
   sendMessage as apiSendMessage,
+} from '../../../lib/api';
+
+import type {
   ConversationDTO,
   MessageDTO,
 } from '../../../lib/api';

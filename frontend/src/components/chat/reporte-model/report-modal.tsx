@@ -16,7 +16,7 @@ export interface ReportData {
 
 const ReportModal: React.FC<ReportModalProps> = ({
   conversationId,
-  conversationTitle,
+  conversationTitle: _conversationTitle,
   onClose,
   onSubmit
 }) => {
