@@ -9,6 +9,10 @@ import os
 # import glob  # RAG DESHABILITADO
 # import pickle  # RAG DESHABILITADO
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 # import numpy as np  # RAG DESHABILITADO
 
@@ -138,8 +142,12 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Se
     return user
 
 # --------------- IA CONFIG ------------------
-# Configuración de Gemini con API key fija (RAG deshabilitado)
-genai.configure(api_key="AIzaSyDO1JayjGYlDCMi08zvFKa-VGRAQIzMEXA")
+# Configuración de Gemini con API key desde variables de entorno (RAG deshabilitado)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY no está configurada en las variables de entorno")
+
+genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 # RAG DESHABILITADO - Comentado para uso futuro
