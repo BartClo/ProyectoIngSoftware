@@ -1,0 +1,154 @@
+.admin-wrapper {
+  width: 100%;
+  height: calc(100vh - 60px);
+  padding: 16px;
+  overflow: auto;
+}
+
+.admin-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.admin-card-header h2 {
+  margin: 0;
+  color: #002855;
+  font-size: 18px;
+}
+
+.admin-card-header .actions {
+  display: flex;
+  gap: 10px;
+}
+
+.search {
+  padding: 10px 12px;
+  border: 1px solid #d8dde6;
+  border-radius: 6px;
+  min-width: 260px;
+}
+
+.primary {
+  background: #002855;
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.primary:hover { background: #001f40; }
+
+.table-scroll { width: 100%; overflow: auto; }
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f9fafc;
+  color: #002855;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.users-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f3f7;
+  font-size: 14px;
+}
+
+.users-table tbody tr:hover { background: #fafbfd; }
+
+.users-table tbody tr.inactive { opacity: 0.72; }
+
+.cell-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d8dde6;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8ebf2;
+  color: #3a4760;
+  font-size: 12px;
+}
+
+.badge.success {
+  background: #e6f4ea;
+  color: #1b5e20;
+}
+
+.row-actions { display: flex; gap: 8px; }
+
+button.small {
+  padding: 6px 10px;
+  border: 1px solid #d8dde6;
+  background: #fff;
+  color: #002855;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button.small:hover { background: #f6f8fb; }
+
+button.small.danger {
+  border-color: #f3c0bf;
+  color: #b71c1c;
+}
+
+button.small.danger:hover { background: #fff3f2; }
+
+/* Mantener altura de filas estable durante edición */
+.users-table tbody tr.fixed-height {
+  height: 56px;
+}
+.users-table tbody tr.fixed-height td {
+  vertical-align: middle;
+}
+.users-table .cell-input {
+  height: 36px;
+  box-sizing: border-box;
+}
+
+/* Toast de notificación */
+.toast-notice {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #002855;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .2s ease, transform .2s ease;
+  z-index: 2000;
+}
+
+.toast-notice.show {
+  opacity: 1;
+  transform: translateY(0);
+}
