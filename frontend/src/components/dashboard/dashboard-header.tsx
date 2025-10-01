@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import './dashboard-header.css';
-import faviconUSS from '/FaviconUSS.png';
 
 interface DashboardHeaderProps {
   userEmail: string;
@@ -40,7 +39,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       {/* Lado izquierdo - Logo y título */}
       <div className="header-left">
         <div className="header-logo-container">
-          <img src={faviconUSS} alt="Logo USS" className="header-logo" />
+          <img src="/FaviconUSS.png" alt="Logo USS" className="header-logo" />
           <span className="header-logo-text">IA USS</span>
         </div>
         <h1 className="header-title">Asistente IA USS</h1>
@@ -58,6 +57,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button help-button"
             onClick={onHelp} 
             aria-label="Ayuda"
+            title="Ver ayuda"
           >
             <span className="icon">❓</span>
           </button>
@@ -65,6 +65,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button settings-button"
             onClick={onSettings} 
             aria-label="Configuración"
+            title="Abrir configuración"
           >
             <span className="icon">⚙️</span>
           </button>
@@ -72,6 +73,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button logout-button"
             onClick={handleLogoutClick} 
             aria-label="Cerrar sesión"
+            title="Cerrar sesión"
           >
             <span className="icon">🚪</span>
           </button>
