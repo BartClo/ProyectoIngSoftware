@@ -4,7 +4,7 @@ import fondoUSS from '../../assets/style/FondoUSS.svg';
 import './login.css';
 
 interface LoginProps {
-  onLogin: (email: string) => void;
+  onLogin: (email: string, asAdmin: boolean) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -16,8 +16,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const value = e.target.value;
     setEmail(value);
     
-    // Validar que el correo termine con @docente.uss.cl solo cuando el usuario ha escrito algo
-    if (value && value.includes('@') && !value.endsWith('@docente.uss.cl')) {
+    // Validar que el correo termine con @docente.uss.cl o @admin.uss.cl cuando el usuario ha escrito algo
+    const allowed = value.endsWith('@docente.uss.cl') || value.endsWith('@admin.uss.cl');
+    if (value && value.includes('@') && !allowed) {
       setEmailError('Debe usar su correo institucional');
     } else {
       setEmailError('');
@@ -32,8 +33,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
     
     // Simulamos autenticación exitosa y pasamos el correo al componente padre
-    console.log('Email:', email, 'Password:', password);
-    onLogin(email);
+    const asAdmin = email.endsWith('@admin.uss.cl');
+    console.log('Email:', email, 'Password:', password, 'Admin:', asAdmin);
+    onLogin(email, asAdmin);
   };
 
   return (
@@ -75,6 +77,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             />
             <span className="error-message"></span>
           </div>
+
+          {/* Eliminado selector de administrador: ahora el acceso admin depende del dominio @admin.uss.cl */}
           
           <button type="submit" className="login-button">
             Iniciar Sesión
