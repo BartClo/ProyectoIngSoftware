@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './users-table.css';
+import { useAdminData } from './admin-data-context';
 
-type Role = 'admin' | 'docente' | 'estudiante';
+type Role = 'admin' | 'docente';
 
 export interface UserRow {
   id: string;
@@ -11,17 +12,14 @@ export interface UserRow {
   activo: boolean;
 }
 
-const seedUsers: UserRow[] = [
-  { id: 'u1', nombre: 'Ana Pérez', email: 'ana.perez@docente.uss.cl', rol: 'docente', activo: true },
-  { id: 'u2', nombre: 'Juan Soto', email: 'juan.soto@admin.uss.cl', rol: 'admin', activo: true },
-  { id: 'u3', nombre: 'María López', email: 'maria.lopez@docente.uss.cl', rol: 'docente', activo: false },
-];
-
 const UsersTable: React.FC = () => {
-  const [users, setUsers] = useState<UserRow[]>(seedUsers);
+  const { users: usersCtx, setUsers: setUsersCtx } = useAdminData();
+  const [users, setUsers] = useState<UserRow[]>(usersCtx);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<UserRow>>({});
+  // Para manejar creación
+  const [newRowId, setNewRowId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -33,6 +31,20 @@ const UsersTable: React.FC = () => {
     );
   }, [users, query]);
 
+  // Paginación para evitar scroll
+  const PAGE_SIZE = 8;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [query]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filtered.slice(start, end);
+  }, [filtered, page]);
+
   const startEdit = (id: string) => {
     const u = users.find(x => x.id === id);
     if (!u) return;
@@ -40,17 +52,28 @@ const UsersTable: React.FC = () => {
     setDraft({ ...u });
   };
 
-  const cancelEdit = () => {
+  const cancelEdit = (reason: 'cancel' | 'save' = 'cancel') => {
+    // Si se estaba creando un usuario nuevo y el motivo es cancelar, eliminar la fila
+    if (reason === 'cancel' && newRowId && editingId === newRowId) {
+      setUsers(prev => prev.filter(u => u.id !== newRowId));
+      setNewRowId(null);
+      showToast('Creación cancelada');
+    }
     setEditingId(null);
     setDraft({});
   };
 
   const saveEdit = () => {
     if (!editingId) return;
-    setUsers(prev => prev.map(u => (u.id === editingId ? { ...(u as UserRow), ...(draft as UserRow), id: u.id } : u)));
+    const isNew = newRowId && editingId === newRowId;
+    const updated = users.map(u => (u.id === editingId ? { ...(u as UserRow), ...(draft as UserRow), id: u.id } : u));
+    setUsers(updated);
+    setUsersCtx(updated);
     // Notificación en-app
-    showToast('Usuario actualizado correctamente');
-    cancelEdit();
+    showToast(isNew ? 'Usuario creado' : 'Usuario actualizado correctamente');
+    if (isNew) setNewRowId(null);
+    // Importante: pasar 'save' para que no intente borrar el nuevo por condición de cancelación
+    cancelEdit('save');
   };
 
   const showToast = (msg: string) => {
@@ -74,7 +97,9 @@ const UsersTable: React.FC = () => {
       // eslint-disable-next-line no-alert
       if (!(window as any).confirm || !(window as any).confirm('¿Eliminar usuario?')) return;
     } catch {}
-    setUsers(prev => prev.filter(u => u.id !== id));
+    const updated = users.filter(u => u.id !== id);
+    setUsers(updated);
+    setUsersCtx(updated);
     showToast('Usuario eliminado');
   };
 
@@ -87,10 +112,13 @@ const UsersTable: React.FC = () => {
       rol: 'docente',
       activo: true,
     };
-    setUsers(prev => [nuevo, ...prev]);
+    const updated = [nuevo, ...users];
+    setUsers(updated);
+    setUsersCtx(updated);
     setEditingId(id);
     setDraft({ ...nuevo });
-    showToast('Usuario creado');
+    setNewRowId(id);
+    setPage(1);
   };
 
   return (
@@ -121,7 +149,7 @@ const UsersTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => (
+              {pageItems.map(u => (
                 <tr key={u.id} className={!u.activo ? 'inactive fixed-height' : 'fixed-height'}>
                   <td>
                     {editingId === u.id ? (
@@ -154,7 +182,6 @@ const UsersTable: React.FC = () => {
                       >
                         <option value="admin">Administrador</option>
                         <option value="docente">Docente</option>
-                        <option value="estudiante">Estudiante</option>
                       </select>
                     ) : (
                       u.rol.charAt(0).toUpperCase() + u.rol.slice(1)
@@ -180,7 +207,7 @@ const UsersTable: React.FC = () => {
                     {editingId === u.id ? (
                       <>
                         <button className="small primary" onClick={saveEdit}>Guardar</button>
-                        <button className="small" onClick={cancelEdit}>Cancelar</button>
+                        <button className="small" onClick={() => cancelEdit('cancel')}>Cancelar</button>
                       </>
                     ) : (
                       <>
@@ -201,6 +228,14 @@ const UsersTable: React.FC = () => {
             </tbody>
           </table>
         </div>
+        {/* Paginación */}
+        {filtered.length > 0 && (
+          <div className="pagination-bar">
+            <button className="small" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Anterior</button>
+            <span className="page-indicator">Página {page} de {totalPages}</span>
+            <button className="small" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Siguiente</button>
+          </div>
+        )}
       </div>
     </div>
   );
