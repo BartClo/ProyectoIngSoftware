@@ -6,13 +6,23 @@ interface DashboardHeaderProps {
   onLogout: () => void;
   onSettings: () => void;
   onHelp: () => void;
+  showAdminActions?: boolean;
+  activeAdminView?: 'users' | 'reports' | 'create-conv';
+  onReportsClick?: () => void;
+  onCreateConversationClick?: () => void;
+  onUsersAdminClick?: () => void;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   userEmail,
   onLogout,
   onSettings,
-  onHelp
+  onHelp,
+  showAdminActions,
+  activeAdminView,
+  onReportsClick,
+  onCreateConversationClick,
+  onUsersAdminClick
 }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
@@ -51,6 +61,32 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <span className="header-email">{userEmail}</span>
           <div className="header-avatar">{userInitial}</div>
         </div>
+
+        {showAdminActions && (
+          <div className="header-quick-actions">
+            <button
+              className={`cta-button ${activeAdminView === 'users' ? 'active' : ''}`}
+              onClick={onUsersAdminClick}
+              title="Administración de usuarios"
+            >
+              Administración de usuarios
+            </button>
+            <button
+              className={`cta-button ${activeAdminView === 'reports' ? 'active' : ''}`}
+              onClick={onReportsClick}
+              title="Ver reportes"
+            >
+              Reportes
+            </button>
+            <button
+              className={`cta-button ${activeAdminView === 'create-conv' ? 'active' : ''}`}
+              onClick={onCreateConversationClick}
+              title="Crear conversación"
+            >
+              Crear conversación
+            </button>
+          </div>
+        )}
 
         <div className="header-actions">
           <button 
