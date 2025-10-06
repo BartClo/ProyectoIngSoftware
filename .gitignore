@@ -7,13 +7,42 @@ dist/
 __pycache__/
 *.pyc
 *.pyo
+venv/
 .venv/
 .test_gemini.py
 
-# Env
+# Env files (contienen API keys sensibles)
 .env
 *.env
+!.env.example
 
 # Docker
 *.log
 db_data/
+
+# Sistema RAG - Archivos generados y cachés
+backend/embeddings_cache/
+backend/docstore.pkl
+backend/vector_store.index
+
+# Documentos PDF (pueden contener información sensible)
+backend/context_docs/*.pdf
+
+# Modelos y cachés de ML
+.cache/
+*.model
+*.bin
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

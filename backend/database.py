@@ -13,10 +13,22 @@ except Exception:
 # Leer cadena de conexión desde entorno
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL no está configurada en las variables de entorno")
+    # Fallback para desarrollo local con SQLite
+    DATABASE_URL = "sqlite:///./chatbot.db"
+    print("⚠️ DATABASE_URL no configurada, usando SQLite local: chatbot.db")
 
-# Configurar engine con pool_pre_ping para reconexiones resilientes
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+# Configurar engine con parámetros específicos según el tipo de base de datos
+if DATABASE_URL.startswith("sqlite"):
+    # Configuración para SQLite
+    engine = create_engine(
+        DATABASE_URL, 
+        connect_args={"check_same_thread": False},  # Para SQLite
+        echo=False  # Cambiar a True para ver consultas SQL en desarrollo
+    )
+else:
+    # Configuración para PostgreSQL u otras bases de datos
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
 Base = declarative_base()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

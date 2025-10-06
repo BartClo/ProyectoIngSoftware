@@ -23,6 +23,7 @@ interface ChatMessage {
   text: string;
   sender: 'user' | 'ai';
   timestamp: Date;
+  sources?: string[]; // Nuevas fuentes del RAG
 }
 
 interface ChatConversation {
@@ -89,10 +90,10 @@ const ChatInterface: React.FC = () => {
       try {
         const msgs = await apiListMessages(activeConversationId);
         if (!mounted) return;
-        setMessagesByConv(prev => ({ ...prev, [activeConversationId]: msgs.map(mapMessage) }));
+        setMessagesByConv((prev: Record<number, ChatMessage[]>) => ({ ...prev, [activeConversationId]: msgs.map(mapMessage) }));
       } catch (e) {
         console.error('Error listando mensajes', e);
-        setMessagesByConv(prev => ({ ...prev, [activeConversationId]: [] }));
+        setMessagesByConv((prev: Record<number, ChatMessage[]>) => ({ ...prev, [activeConversationId]: [] }));
       }
     })();
 
@@ -107,11 +108,11 @@ const ChatInterface: React.FC = () => {
     try {
       const dto = await apiCreateConversation({ with_welcome: true });
       const conv = mapConversation(dto);
-      setConversations(prev => [conv, ...prev]);
+      setConversations((prev: ChatConversation[]) => [conv, ...prev]);
       setActiveConversationId(conv.id);
       // cargar mensajes (incluye bienvenida si with_welcome=true)
       const msgs = await apiListMessages(conv.id);
-      setMessagesByConv(prev => ({ ...prev, [conv.id]: msgs.map(mapMessage) }));
+      setMessagesByConv((prev: Record<number, ChatMessage[]>) => ({ ...prev, [conv.id]: msgs.map(mapMessage) }));
     } catch (e) {
       console.error('Error creando conversación', e);
       alert('No se pudo crear la conversación');
@@ -121,14 +122,14 @@ const ChatInterface: React.FC = () => {
   const handleDeleteConversation = async (conversationId: number) => {
     try {
       await apiDeleteConversation(conversationId);
-      setConversations(prev => prev.filter(c => c.id !== conversationId));
-      setMessagesByConv(prev => {
+      setConversations((prev: ChatConversation[]) => prev.filter((c: ChatConversation) => c.id !== conversationId));
+      setMessagesByConv((prev: Record<number, ChatMessage[]>) => {
         const copy = { ...prev };
         delete copy[conversationId];
         return copy;
       });
       if (activeConversationId === conversationId) {
-        const remaining = conversations.filter(c => c.id !== conversationId);
+        const remaining = conversations.filter((c: ChatConversation) => c.id !== conversationId);
         setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
       }
     } catch (e) {
@@ -140,7 +141,7 @@ const ChatInterface: React.FC = () => {
   const handleRenameConversation = async (conversationId: number, newTitle: string) => {
     try {
       const dto = await apiRenameConversation(conversationId, newTitle);
-      setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, title: dto.title, updatedAt: new Date(dto.updated_at) } : c)));
+      setConversations((prev: ChatConversation[]) => prev.map((c: ChatConversation) => (c.id === conversationId ? { ...c, title: dto.title, updatedAt: new Date(dto.updated_at) } : c)));
     } catch (e) {
       console.error('Error renombrando conversación', e);
       alert('No se pudo renombrar la conversación');
@@ -160,7 +161,7 @@ const ChatInterface: React.FC = () => {
       timestamp: new Date(),
     };
 
-    setMessagesByConv(prev => ({
+    setMessagesByConv((prev: Record<number, ChatMessage[]>) => ({
       ...prev,
       [convId]: [...(prev[convId] || []), userMsg],
     }));
@@ -174,16 +175,17 @@ const ChatInterface: React.FC = () => {
         text: resp.response || 'No lo sé con la información disponible',
         sender: 'ai',
         timestamp: new Date(),
+        sources: resp.sources || [], // Agregar fuentes del RAG
       };
-      setMessagesByConv(prev => ({
+      setMessagesByConv((prev: Record<number, ChatMessage[]>) => ({
         ...prev,
         [convId]: [...(prev[convId] || []), aiMsg],
       }));
 
       // Reordenar conversación al tope (updatedAt ahora)
-      setConversations(prev => {
-        const updated = prev.map(c => (c.id === convId ? { ...c, updatedAt: new Date() } : c));
-        return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      setConversations((prev: ChatConversation[]) => {
+        const updated = prev.map((c: ChatConversation) => (c.id === convId ? { ...c, updatedAt: new Date() } : c));
+        return updated.sort((a: ChatConversation, b: ChatConversation) => b.updatedAt.getTime() - a.updatedAt.getTime());
       });
     } catch (e) {
       console.error('Error enviando mensaje', e);
@@ -193,7 +195,7 @@ const ChatInterface: React.FC = () => {
         sender: 'ai',
         timestamp: new Date(),
       };
-      setMessagesByConv(prev => ({
+      setMessagesByConv((prev: Record<number, ChatMessage[]>) => ({
         ...prev,
         [convId]: [...(prev[convId] || []), errMsg],
       }));
@@ -235,7 +237,7 @@ const ChatInterface: React.FC = () => {
         {hasConversations && activeConversationId ? (
           <div className="chat-content">
             <div className="chat-header">
-              <h2>{conversations.find(c => c.id === activeConversationId)?.title || 'Chat'}</h2>
+                            <h2>{conversations.find((c: ChatConversation) => c.id === activeConversationId)?.title || 'Chat'}</h2>
             </div>
 
             <div className="messages-container">
@@ -245,6 +247,16 @@ const ChatInterface: React.FC = () => {
                   className={`message ${message.sender === 'user' ? 'user-message' : 'ai-message'}`}
                 >
                   <div className="message-content">{message.text}</div>
+                  {message.sender === 'ai' && message.sources && message.sources.length > 0 && (
+                    <div className="message-sources">
+                      <span className="sources-label">📚 Fuentes:</span>
+                      <ul className="sources-list">
+                        {message.sources.map((source, index) => (
+                          <li key={index} className="source-item">{source}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <div className="message-timestamp">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
@@ -257,8 +269,8 @@ const ChatInterface: React.FC = () => {
               <input
                 type="text"
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !sending && handleSendMessage()}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value)}
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && !sending && handleSendMessage()}
                 placeholder="Escribe un mensaje..."
                 className="message-input"
                 disabled={!activeConversationId}

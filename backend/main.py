@@ -6,15 +6,11 @@ from passlib.context import CryptContext
 from typing import Annotated, List, Tuple, Dict, Optional
 from pydantic import BaseModel
 import os
-# import glob  # RAG DESHABILITADO
-# import pickle  # RAG DESHABILITADO
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env
 load_dotenv()
-
-# import numpy as np  # RAG DESHABILITADO
 
 from database import Base, engine, get_db
 from models import User as UserModel
@@ -24,11 +20,13 @@ from models import Message as MessageModel
 # JWT
 from jose import JWTError, jwt
 
-# Gemini
-import google.generativeai as genai
+# RAG System
+from rag_manager import RAGManager
+import logging
 
-# FAISS - RAG DESHABILITADO
-# import faiss
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Chatbot USS API",
@@ -65,6 +63,20 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
 
 Base.metadata.create_all(bind=engine)
+
+# Inicializar sistema RAG
+rag_manager = RAGManager()
+
+# Inicializar RAG en startup (esto solo se ejecuta una vez al iniciar el servidor)
+@app.on_event("startup")
+async def startup_event():
+    """Inicializa el sistema RAG al iniciar la aplicación"""
+    logger.info("Inicializando sistema RAG...")
+    success = rag_manager.initialize_rag_system()
+    if success:
+        logger.info("Sistema RAG inicializado exitosamente")
+    else:
+        logger.error("Error al inicializar sistema RAG")
 
 # --------------- Pydantic Schemas ------------------
 class UserCreate(BaseModel):
@@ -154,182 +166,20 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Se
     return user
 
 # --------------- IA CONFIG ------------------
-# Configuración de Gemini con API key desde variables de entorno (RAG deshabilitado)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY no está configurada en las variables de entorno")
-
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
-
-# RAG DESHABILITADO - Comentado para uso futuro
-# CONTEXT_DIR = os.path.join(os.path.dirname(__file__), "context_docs")
-# INDEX_PATH = os.path.join(os.path.dirname(__file__), "vector_store.index")
-# DOCSTORE_PATH = os.path.join(os.path.dirname(__file__), "docstore.pkl")
-
-
-# RAG DESHABILITADO - Función de chunking comentada
-# def _chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
-#     chunks: List[str] = []
-#     start = 0
-#     text_length = len(text)
-#     while start < text_length:
-#         end = min(start + chunk_size, text_length)
-#         chunks.append(text[start:end])
-#         if end == text_length:
-#             break
-#         start = end - overlap
-#         if start < 0:
-#             start = 0
-#     return chunks
-
-
-# RAG DESHABILITADO - Función de carga de documentos comentada
-# def _load_context_texts() -> List[str]:
-#     from pypdf import PdfReader
-# 
-#     texts: List[str] = []
-#     if not os.path.isdir(CONTEXT_DIR):
-#         return texts
-# 
-#     pdf_paths = sorted(glob.glob(os.path.join(CONTEXT_DIR, "*.pdf")))
-#     for pdf_path in pdf_paths:
-#         try:
-#             reader = PdfReader(pdf_path)
-#             pages_text: List[str] = [page.extract_text() or "" for page in reader.pages]
-#             full_text = "\n".join(pages_text)
-# 
-#             if not full_text.strip():
-#                 try:
-#                     import pypdfium2 as pdfium
-#                     from PIL import Image  # noqa: F401  # Pillow usado indirectamente
-#                     import pytesseract
-# 
-#                     pdf = pdfium.PdfDocument(pdf_path)
-#                     ocr_text_parts: List[str] = []
-#                     render_scale = 2.0
-#                     for i in range(len(pdf)):
-#                         page = pdf[i]
-#                         bitmap = page.render(scale=render_scale).to_pil()
-#                         if bitmap.mode != "L":
-#                             bitmap = bitmap.convert("L")
-#                         page_text = pytesseract.image_to_string(bitmap, lang="spa+eng")
-#                         if page_text:
-#                             ocr_text_parts.append(page_text)
-#                     full_text = "\n".join(ocr_text_parts)
-#                 except Exception:
-#                     full_text = ""
-# 
-#             if full_text.strip():
-#                 for chunk in _chunk_text(full_text):
-#                     texts.append(chunk)
-#         except Exception:
-#             continue
-#     return texts
-
-
-# RAG DESHABILITADO - Función de construcción de índice FAISS comentada
-# def build_faiss_from_context() -> Tuple[Optional[faiss.IndexFlatIP], Dict[int, str]]:
-#     documents = _load_context_texts()
-#     if not documents:
-#         return None, {}
-# 
-#     embeddings: List[List[float]] = []
-#     docstore: Dict[int, str] = {}
-# 
-#     for idx, doc_text in enumerate(documents):
-#         try:
-#             emb = genai.embed_content(
-#                 model="models/embedding-001",
-#                 content=doc_text,
-#                 task_type="retrieval_document",
-#             )["embedding"]
-#         except Exception:
-#             continue
-#         embeddings.append(emb)
-#         docstore[idx] = doc_text
-# 
-#     if not embeddings:
-#         return None, {}
-# 
-#     emb_dim = len(embeddings[0])
-#     emb_matrix = np.array(embeddings, dtype="float32")
-#     faiss.normalize_L2(emb_matrix)
-#     index = faiss.IndexFlatIP(emb_dim)
-#     index.add(emb_matrix)
-# 
-#     faiss.write_index(index, INDEX_PATH)
-#     with open(DOCSTORE_PATH, "wb") as f:
-#         pickle.dump(docstore, f)
-# 
-#     return index, docstore
-
-# RAG DESHABILITADO - Variables y funciones RAG comentadas
-# SIMILARITY_THRESHOLD = 0.05
-# AI_PLACEHOLDER_RESPONSE = "Esperando respuesta del asistente..."
-# 
-# def _is_generic_query(text: str) -> bool:
-#     normalized = (text or "").strip().lower()
-#     if not normalized:
-#         return True
-#     generic_starts = [
-#         "hola", "buenas", "hey", "ayuda", "help", "¿qué puedes", "que puedes",
-#         "como estas", "menu", "inicio", "start",
-#     ]
-#     return any(normalized.startswith(gs) for gs in generic_starts)
-# 
-# def _topic_suggestions(docstore: Dict[int, str], limit: int = 5) -> List[str]:
-#     suggestions: List[str] = []
-#     seen: set = set()
-#     for _, chunk in docstore.items():
-#         if not chunk:
-#             continue
-#         snippet = chunk.strip().split("\n")[0][:140].strip()
-#         if len(snippet) < 20:
-#             continue
-#         key = snippet[:60].lower()
-#         if key in seen:
-#             continue
-#         seen.add(key)
-#         suggestions.append(snippet + ("…" if len(snippet) == 140 else ""))
-#         if len(suggestions) >= limit:
-#             break
-#     if not suggestions:
-#         suggestions = [
-#             "Políticas y procedimientos de gestión de calidad",
-#             "Indicadores y métricas de aseguramiento de la calidad",
-#             "Roles y responsabilidades en el sistema de calidad",
-#             "Ciclo de mejora continua (Planificar-Hacer-Verificar-Actuar)",
-#             "Auditorías y acciones correctivas/preventivas",
-#         ]
-#     return suggestions
-
-# RAG DESHABILITADO - Inicialización de índice FAISS comentada
-# if os.path.exists(INDEX_PATH) and os.path.exists(DOCSTORE_PATH):
-#     index = faiss.read_index(INDEX_PATH)
-#     with open(DOCSTORE_PATH, "rb") as f:
-#         docstore = pickle.load(f)
-#     try:
-#         if index.ntotal != len(docstore):
-#             index, docstore = build_faiss_from_context()
-#     except Exception:
-#         index, docstore = build_faiss_from_context()
-# else:
-#     index, docstore = build_faiss_from_context()
-
-# Variables deshabilitadas para RAG
-index = None
-docstore = {}
+# El sistema RAG ahora maneja la configuración de IA
+# Gemini se configura dentro de RAGManager
 
 # --------------- HEALTH CHECK ------------------
 @app.get("/")
 async def root():
     """Endpoint raíz para verificar que la API está funcionando"""
+    status = rag_manager.get_system_status()
     return {
         "message": "Chatbot USS API está funcionando",
         "status": "ok",
         "version": "1.0.0",
-        "rag_enabled": False
+        "rag_enabled": status.get("rag_initialized", False),
+        "vector_count": status.get("pinecone_vectors", 0)
     }
 
 @app.get("/health")
@@ -456,8 +306,12 @@ async def send_message(
     current_user: Annotated[UserModel, Depends(get_current_user)] = None,
     db: Session = Depends(get_db),
 ):
-    # RAG DESHABILITADO - Ahora funciona como chatbot normal
-    conv = db.query(ConversationModel).filter(ConversationModel.id == conversation_id, ConversationModel.user_id == current_user.id).first()
+    """Envía un mensaje y obtiene respuesta usando el sistema RAG"""
+    conv = db.query(ConversationModel).filter(
+        ConversationModel.id == conversation_id, 
+        ConversationModel.user_id == current_user.id
+    ).first()
+    
     if not conv:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
 
@@ -479,48 +333,30 @@ async def send_message(
         .all()
     )
     
-    # Construir contexto de conversación
-    conversation_context = ""
+    # Preparar historial para RAG
+    conversation_history = []
     if len(recent_messages) > 1:  # Si hay mensajes previos
-        context_messages = []
         for msg in reversed(recent_messages[1:]):  # Excluir el mensaje actual
-            role = "Usuario" if msg.sender == "user" else "Asistente"
-            context_messages.append(f"{role}: {msg.text}")
-        if context_messages:
-            conversation_context = "\n".join(context_messages[-6:])  # Últimos 6 mensajes
-
-    # Prompt para chatbot normal (sin RAG)
-    if conversation_context:
-        prompt = f"""
-Eres un asistente de IA útil y amigable. Responde de manera natural y conversacional.
-
-Contexto de la conversación:
-{conversation_context}
-
-Usuario: {user_text}
-
-Asistente:"""
-    else:
-        prompt = f"""
-Eres un asistente de IA útil y amigable. Responde de manera natural y conversacional.
-
-Usuario: {user_text}
-
-Asistente:"""
+            conversation_history.append({
+                "sender": msg.sender,
+                "text": msg.text,
+                "created_at": msg.created_at
+            })
 
     try:
-        # Generar respuesta con Gemini
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.7,
-                "max_output_tokens": 1000,
-            }
+        # Generar respuesta usando RAG
+        ai_text, sources = rag_manager.generate_response(
+            query=user_text,
+            conversation_history=conversation_history
         )
-        ai_text = getattr(response, "text", "") or "Lo siento, no pude generar una respuesta en este momento."
+        
+        if not ai_text:
+            ai_text = "Lo siento, no pude generar una respuesta en este momento."
+            
     except Exception as e:
-        print(f"Error generando respuesta: {e}")
+        logger.error(f"Error generando respuesta RAG: {e}")
         ai_text = "Lo siento, hubo un error al procesar tu mensaje. Por favor, inténtalo de nuevo."
+        sources = []
 
     # Guardar mensaje de la IA
     ai_msg = MessageModel(conversation_id=conv.id, sender="ai", text=ai_text)
@@ -528,79 +364,64 @@ Asistente:"""
     conv.updated_at = datetime.utcnow()
     db.commit()
 
-    # Sin RAG, no hay fuentes
-    return ChatResponse(response=ai_text, sources=[])
+    return ChatResponse(response=ai_text, sources=sources)
 
 
 # --------------- Mantenimiento / Salud IA ------------------
-# RAG DESHABILITADO - Endpoint de reconstrucción de índice comentado
-# @app.post("/rebuild_index/")
-# async def rebuild_index():
-#     global index, docstore
-#     index, docstore = build_faiss_from_context()
-#     if index is None or not docstore:
-#         return {"error": "No se pudo reconstruir el índice. Verifica que existan PDFs válidos en context_docs."}
-#     return {"message": "Índice reconstruido", "num_chunks": len(docstore)}
+@app.post("/rebuild_index/")
+async def rebuild_index():
+    """Reconstruye completamente el índice RAG"""
+    try:
+        success = rag_manager.rebuild_index()
+        if success:
+            status = rag_manager.get_system_status()
+            return {
+                "message": "Índice RAG reconstruido exitosamente",
+                "vector_count": status.get("pinecone_vectors", 0)
+            }
+        else:
+            return {"error": "No se pudo reconstruir el índice RAG"}
+    except Exception as e:
+        logger.error(f"Error al reconstruir índice: {e}")
+        return {"error": f"Error al reconstruir índice: {str(e)}"}
+
+
+@app.get("/rag_status/")
+async def rag_status():
+    """Obtiene el estado completo del sistema RAG"""
+    return rag_manager.get_system_status()
+
+
+@app.post("/initialize_rag/")
+async def initialize_rag_endpoint():
+    """Inicializa manualmente el sistema RAG"""
+    try:
+        success = rag_manager.initialize_rag_system(force_refresh=False)
+        if success:
+            return {"message": "Sistema RAG inicializado exitosamente"}
+        else:
+            return {"error": "No se pudo inicializar el sistema RAG"}
+    except Exception as e:
+        logger.error(f"Error al inicializar RAG: {e}")
+        return {"error": f"Error al inicializar RAG: {str(e)}"}
 
 
 @app.get("/ai_health/")
 async def ai_health():
-    # RAG DESHABILITADO - Health check simplificado para chatbot normal
-    details = {
-        "rag_enabled": False,
-        "chatbot_mode": "normal",
-        "can_generate": False,
-    }
+    """Health check del sistema RAG"""
+    return rag_manager.get_system_status()
 
-    try:
-        resp = model.generate_content(
-            "Di 'pong'. Solo la palabra.",
-            generation_config={"max_output_tokens": 3, "temperature": 0},
-        )
-        out_text = getattr(resp, "text", "") or ""
-        details["can_generate"] = bool(out_text)
-        if out_text:
-            details["sample"] = out_text
-    except Exception as e:
-        details["generate_error"] = str(e)
-
-    status_label = "ok" if details["can_generate"] else "error"
-    return {"status": status_label, **details}
-
-
-# RAG DESHABILITADO - Endpoint de debug de recuperación comentado
-# @app.post("/debug_retrieve/")
-# async def debug_retrieve(req: MessageCreate):
-#     if index is None or not docstore:
-#         return {"error": "No hay índice/docstore"}
-# 
-#     q_emb = genai.embed_content(
-#         model="models/embedding-001",
-#         content=req.text,
-#         task_type="retrieval_query",
-#     )["embedding"]
-#     q_vec = np.array([q_emb], dtype="float32")
-#     faiss.normalize_L2(q_vec)
-# 
-#     k = 8
-#     D, I = index.search(q_vec, k)
-#     pairs = [(float(D[0][pos]), int(I[0][pos])) for pos in range(len(I[0])) if int(I[0][pos]) in docstore]
-#     preview = [
-#         {
-#             "score": score,
-#             "idx": idx,
-#             "snippet": (docstore[idx][:220] + ("…" if len(docstore[idx]) > 220 else "")) if docstore[idx] else ""
-#         }
-#         for score, idx in pairs
-#     ]
-#     return {"pairs": preview}
 
 @app.get("/chatbot_info/")
 async def chatbot_info():
     """Endpoint para obtener información sobre el estado del chatbot"""
+    status = rag_manager.get_system_status()
     return {
-        "mode": "normal_ai",
-        "rag_enabled": False,
-        "description": "Chatbot funcionando como IA conversacional normal sin RAG",
-        "model": "gemini-1.5-flash"
+        "mode": "rag_enabled",
+        "rag_enabled": status.get("rag_initialized", False),
+        "description": "Chatbot con sistema RAG usando Hugging Face + Pinecone + Gemini",
+        "embedding_model": status.get("embedding_model", "all-MiniLM-L6-v2"),
+        "llm_model": status.get("gemini_model", "gemini-1.5-flash"),
+        "vector_store": "Pinecone",
+        "vectors_count": status.get("pinecone_vectors", 0)
     }
