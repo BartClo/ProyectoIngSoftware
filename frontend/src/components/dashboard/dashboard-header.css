@@ -82,6 +82,42 @@
   align-items: center;
 }
 
+.header-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 12px;
+}
+
+.cta-button {
+  border: 1px solid #d8dde6;
+  background: #fff;
+  color: #002855;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color .2s ease, box-shadow .2s ease, color .2s ease, border-color .2s ease;
+}
+.cta-button:hover {
+  background: #f6f8fb;
+}
+.primary-cta {
+  background: #002855;
+  color: #fff;
+  border-color: #002855;
+}
+.primary-cta:hover {
+  background: #001f40;
+}
+
+/* Estado activo: el botón toma el estilo primario (azul) */
+.cta-button.active {
+  background: #002855;
+  color: #fff;
+  border-color: #002855;
+}
+
 .header-button {
   width: 36px;
   height: 36px;

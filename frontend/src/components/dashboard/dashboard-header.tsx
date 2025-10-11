@@ -1,19 +1,28 @@
 import { useState } from 'react';
 import './dashboard-header.css';
-import faviconUSS from '/FaviconUSS.png';
 
 interface DashboardHeaderProps {
   userEmail: string;
   onLogout: () => void;
   onSettings: () => void;
   onHelp: () => void;
+  showAdminActions?: boolean;
+  activeAdminView?: 'users' | 'reports' | 'create-conv';
+  onReportsClick?: () => void;
+  onCreateConversationClick?: () => void;
+  onUsersAdminClick?: () => void;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   userEmail,
   onLogout,
   onSettings,
-  onHelp
+  onHelp,
+  showAdminActions,
+  activeAdminView,
+  onReportsClick,
+  onCreateConversationClick,
+  onUsersAdminClick
 }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
@@ -40,7 +49,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       {/* Lado izquierdo - Logo y título */}
       <div className="header-left">
         <div className="header-logo-container">
-          <img src={faviconUSS} alt="Logo USS" className="header-logo" />
+          <img src="/FaviconUSS.png" alt="Logo USS" className="header-logo" />
           <span className="header-logo-text">IA USS</span>
         </div>
         <h1 className="header-title">Asistente IA USS</h1>
@@ -53,11 +62,38 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <div className="header-avatar">{userInitial}</div>
         </div>
 
+        {showAdminActions && (
+          <div className="header-quick-actions">
+            <button
+              className={`cta-button ${activeAdminView === 'users' ? 'active' : ''}`}
+              onClick={onUsersAdminClick}
+              title="Administración de usuarios"
+            >
+              Administración de usuarios
+            </button>
+            <button
+              className={`cta-button ${activeAdminView === 'reports' ? 'active' : ''}`}
+              onClick={onReportsClick}
+              title="Ver reportes"
+            >
+              Reportes
+            </button>
+            <button
+              className={`cta-button ${activeAdminView === 'create-conv' ? 'active' : ''}`}
+              onClick={onCreateConversationClick}
+              title="Crear conversación"
+            >
+              Crear conversación
+            </button>
+          </div>
+        )}
+
         <div className="header-actions">
           <button 
             className="header-button help-button"
             onClick={onHelp} 
             aria-label="Ayuda"
+            title="Ver ayuda"
           >
             <span className="icon">❓</span>
           </button>
@@ -65,6 +101,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button settings-button"
             onClick={onSettings} 
             aria-label="Configuración"
+            title="Abrir configuración"
           >
             <span className="icon">⚙️</span>
           </button>
@@ -72,6 +109,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button logout-button"
             onClick={handleLogoutClick} 
             aria-label="Cerrar sesión"
+            title="Cerrar sesión"
           >
             <span className="icon">🚪</span>
           </button>

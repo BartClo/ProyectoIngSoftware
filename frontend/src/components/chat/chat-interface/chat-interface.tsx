@@ -1,244 +1,321 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ChatSidebar from '../chat-sidebar/chat-sidebar';
 import ChatNoConversation from '../chat-no-conversation/chat-no-conversation';
 import './chat-interface.css';
+import { getConversations, getConversationMessages, deleteConversation } from '../../../lib/api';
 
-import {
-  listConversations,
-  createConversation as apiCreateConversation,
-  renameConversation as apiRenameConversation,
-  deleteConversation as apiDeleteConversation,
-  listMessages as apiListMessages,
-  sendMessage as apiSendMessage,
-  ConversationDTO,
-  MessageDTO,
-} from '../../../lib/api';
-
-// Tipos locales
+// Interfaces
 interface ChatMessage {
-  id: number; // id real o temporal negativo
+  id: string;
   text: string;
   sender: 'user' | 'ai';
   timestamp: Date;
 }
 
 interface ChatConversation {
-  id: number;
+  id: string;
   title: string;
   createdAt: Date;
-  updatedAt: Date;
-  messages: any[]; // no se usa en Sidebar, solo para compatibilidad de tipos
+  messages: ChatMessage[];
 }
+interface ChatInterfaceProps { userEmail: string }
 
-function mapConversation(dto: ConversationDTO): ChatConversation {
-  return {
-    id: dto.id,
-    title: dto.title,
-    createdAt: new Date(dto.created_at),
-    updatedAt: new Date(dto.updated_at),
-    messages: [],
-  };
-}
-
-function mapMessage(dto: MessageDTO): ChatMessage {
-  return {
-    id: dto.id,
-    text: dto.text,
-    sender: dto.sender,
-    timestamp: new Date(dto.created_at),
-  };
-}
-
-const ChatInterface: React.FC = () => {
-  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [messagesByConv, setMessagesByConv] = useState<Record<number, ChatMessage[]>>({});
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Record<string, ChatConversation>>({});
   const [inputValue, setInputValue] = useState('');
-  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Cargar conversaciones del backend en el montaje
+  
+  // Al montar, preferir cargar conversaciones del backend para usuarios autenticados.
+  // Solo usar localStorage como fallback para usuarios no autenticados.
   useEffect(() => {
-    let mounted = true;
+    (async () => {
+      let loadedFromBackend = false;
+      if (userEmail) {
+        try {
+          const convs: any = await getConversations();
+          if (Array.isArray(convs)) {
+            const map: Record<string, ChatConversation> = {};
+            for (const c of convs) {
+              map[String(c.id)] = { id: String(c.id), title: c.title, createdAt: new Date(c.created_at), messages: [] };
+            }
+            setConversations(map);
+            const ids = Object.keys(map);
+            if (ids.length > 0) setActiveConversationId(ids[0]);
+            loadedFromBackend = true;
+          }
+        } catch (e) {
+          // Si falla la llamada al backend, permitimos usar el fallback local.
+          loadedFromBackend = false;
+        }
+      }
+
+      if (!loadedFromBackend) {
+        // Solo leer localStorage si no cargamos desde backend (ej: usuario no autenticado)
+        const savedConversations = localStorage.getItem('chatConversations');
+        if (savedConversations) {
+          try {
+            const parsed = JSON.parse(savedConversations);
+            const parsedWithDates: Record<string, ChatConversation> = {};
+            Object.entries(parsed).forEach(([id, conv]: [string, any]) => {
+              parsedWithDates[id] = {
+                ...conv,
+                createdAt: new Date(conv.createdAt),
+                messages: conv.messages.map((msg: any) => ({
+                  ...msg,
+                  timestamp: new Date(msg.timestamp)
+                }))
+              };
+            });
+
+            setConversations(parsedWithDates);
+
+            const conversationIds = Object.keys(parsedWithDates);
+            if (conversationIds.length > 0) {
+              const lastActiveId = localStorage.getItem('activeConversationId');
+              if (lastActiveId && parsedWithDates[lastActiveId]) {
+                setActiveConversationId(lastActiveId);
+              } else {
+                setActiveConversationId(conversationIds[0]);
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing saved conversations:', error);
+            localStorage.removeItem('chatConversations');
+          }
+        }
+      }
+    })();
+  }, [userEmail]);
+  
+  // Guardar conversaciones en localStorage solo para usuarios NO autenticados.
+  useEffect(() => {
+    if (userEmail) return; // no persistir en localStorage para usuarios autenticados
+    if (Object.keys(conversations).length > 0) {
+      localStorage.setItem('chatConversations', JSON.stringify(conversations));
+    } else {
+      localStorage.removeItem('chatConversations');
+      localStorage.removeItem('activeConversationId');
+    }
+  }, [conversations, userEmail]);
+  
+  // Guardar ID de conversación activa solo para usuarios no autenticados
+  useEffect(() => {
+    if (userEmail) return;
+    if (activeConversationId) {
+      localStorage.setItem('activeConversationId', activeConversationId);
+    } else {
+      localStorage.removeItem('activeConversationId');
+    }
+  }, [activeConversationId, userEmail]);
+  
+  // Manejar la selección de una conversación
+  const handleSelectConversation = (conversationId: string) => {
+    setActiveConversationId(conversationId);
+    // cargar mensajes desde backend
     (async () => {
       try {
-        const dtos = await listConversations();
-        if (!mounted) return;
-        const convs = dtos.map(mapConversation);
-        setConversations(convs);
-        if (convs.length > 0) {
-          setActiveConversationId(convs[0].id);
+        const msgs: any = await getConversationMessages(Number(conversationId));
+        if (Array.isArray(msgs)) {
+          setConversations(prev => ({
+            ...prev,
+            [conversationId]: {
+              ...prev[conversationId],
+              messages: msgs.map((m: any) => ({ id: String(m.id), text: m.text, sender: m.sender as ('user'|'ai'), timestamp: new Date(m.created_at) }))
+            }
+          }));
         }
       } catch (e) {
-        console.error('Error listando conversaciones', e);
+        // ignore
       }
     })();
-    return () => { mounted = false; };
-  }, []);
-
-  // Cargar mensajes al seleccionar una conversación (si no están ya en memoria)
-  useEffect(() => {
-    if (!activeConversationId) return;
-    if (messagesByConv[activeConversationId]) return;
-
-    let mounted = true;
+  };
+  
+  // Crear una nueva conversación
+  const handleNewConversation = () => {
+    // Si el usuario está autenticado, crear la conversación en el backend
     (async () => {
       try {
-        const msgs = await apiListMessages(activeConversationId);
-        if (!mounted) return;
-        setMessagesByConv(prev => ({ ...prev, [activeConversationId]: msgs.map(mapMessage) }));
+        const created: any = await (await import('../../../lib/api')).createConversation();
+        // created should be ConversationOut with numeric id
+        const convId = created?.id ? String(created.id) : `conv_${Date.now()}`;
+        const welcomeMessage: ChatMessage = { id: `msg_${Date.now()}`, text: "¡Hola! Soy tu asistente de IA USS. ¿Cómo puedo ayudarte hoy?", sender: 'ai', timestamp: new Date() };
+        const newConversation: ChatConversation = { id: convId, title: created?.title || 'Nueva conversación', createdAt: created?.created_at ? new Date(created.created_at) : new Date(), messages: [welcomeMessage] };
+        setConversations(prev => ({ [convId]: newConversation, ...prev }));
+        setActiveConversationId(convId);
       } catch (e) {
-        console.error('Error listando mensajes', e);
-        setMessagesByConv(prev => ({ ...prev, [activeConversationId]: [] }));
+        // fallback local
+        const newConversationId = `conv_${Date.now()}`;
+        const welcomeMessage: ChatMessage = { id: `msg_${Date.now()}`, text: "¡Hola! Soy tu asistente de IA USS. ¿Cómo puedo ayudarte hoy?", sender: 'ai', timestamp: new Date() };
+        const newConversation: ChatConversation = { id: newConversationId, title: `Nueva conversación`, createdAt: new Date(), messages: [welcomeMessage] };
+        setConversations(prev => ({ [newConversationId]: newConversation, ...prev }));
+        setActiveConversationId(newConversationId);
       }
     })();
-
-    return () => { mounted = false; };
-  }, [activeConversationId]);
-
-  const handleSelectConversation = (conversationId: number) => {
-    setActiveConversationId(conversationId);
   };
-
-  const handleNewConversation = async () => {
-    try {
-      const dto = await apiCreateConversation({ with_welcome: true });
-      const conv = mapConversation(dto);
-      setConversations(prev => [conv, ...prev]);
-      setActiveConversationId(conv.id);
-      // cargar mensajes (incluye bienvenida si with_welcome=true)
-      const msgs = await apiListMessages(conv.id);
-      setMessagesByConv(prev => ({ ...prev, [conv.id]: msgs.map(mapMessage) }));
-    } catch (e) {
-      console.error('Error creando conversación', e);
-      alert('No se pudo crear la conversación');
-    }
-  };
-
-  const handleDeleteConversation = async (conversationId: number) => {
-    try {
-      await apiDeleteConversation(conversationId);
-      setConversations(prev => prev.filter(c => c.id !== conversationId));
-      setMessagesByConv(prev => {
-        const copy = { ...prev };
-        delete copy[conversationId];
-        return copy;
+  
+  // Eliminar conversación
+  const handleDeleteConversation = (conversationId: string) => {
+    // Intentar eliminar en backend si es un conv numérico
+    const parsed = Number(conversationId);
+    if (!Number.isNaN(parsed)) {
+      deleteConversation(parsed).then(() => {
+        setConversations(prevConversations => {
+          const { [conversationId]: deleted, ...remaining } = prevConversations;
+          if (conversationId === activeConversationId) {
+            const remainingIds = Object.keys(remaining);
+            if (remainingIds.length > 0) setActiveConversationId(remainingIds[0]); else setActiveConversationId(null);
+          }
+          return remaining;
+        });
+      }).catch(() => {
+        // fallback local
+        setConversations(prevConversations => {
+          const { [conversationId]: deleted, ...remaining } = prevConversations;
+          if (conversationId === activeConversationId) {
+            const remainingIds = Object.keys(remaining);
+            if (remainingIds.length > 0) setActiveConversationId(remainingIds[0]); else setActiveConversationId(null);
+          }
+          return remaining;
+        });
       });
-      if (activeConversationId === conversationId) {
-        const remaining = conversations.filter(c => c.id !== conversationId);
-        setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
+      return;
+    }
+    // fallback local removal
+    setConversations(prevConversations => {
+      const { [conversationId]: deleted, ...remaining } = prevConversations;
+      if (conversationId === activeConversationId) {
+        const remainingIds = Object.keys(remaining);
+        if (remainingIds.length > 0) setActiveConversationId(remainingIds[0]); else setActiveConversationId(null);
       }
-    } catch (e) {
-      console.error('Error eliminando conversación', e);
-      alert('No se pudo eliminar la conversación');
-    }
+      return remaining;
+    });
   };
-
-  const handleRenameConversation = async (conversationId: number, newTitle: string) => {
-    try {
-      const dto = await apiRenameConversation(conversationId, newTitle);
-      setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, title: dto.title, updatedAt: new Date(dto.updated_at) } : c)));
-    } catch (e) {
-      console.error('Error renombrando conversación', e);
-      alert('No se pudo renombrar la conversación');
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || !activeConversationId) return;
-    const text = inputValue;
-    const convId = activeConversationId;
-
-    // Mensaje del usuario (optimista)
-    const userMsg: ChatMessage = {
-      id: -Date.now(), // id temporal negativo
-      text,
-      sender: 'user',
-      timestamp: new Date(),
-    };
-
-    setMessagesByConv(prev => ({
-      ...prev,
-      [convId]: [...(prev[convId] || []), userMsg],
+  
+  // Renombrar conversación
+  const handleRenameConversation = (conversationId: string, newTitle: string) => {
+    setConversations(prevConversations => ({
+      ...prevConversations,
+      [conversationId]: {
+        ...prevConversations[conversationId],
+        title: newTitle
+      }
     }));
+  };
+  
+  // Enviar un mensaje
+  const handleSendMessage = () => {
+    if (!inputValue.trim() || !activeConversationId) return;
+    
+    const newMessage: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      text: inputValue,
+      sender: 'user',
+      timestamp: new Date()
+    };
+    
+    // Actualizar la conversación activa con el nuevo mensaje
+    const updatedConversations = { ...conversations };
+    const updatedConversation = { 
+      ...updatedConversations[activeConversationId],
+      messages: [
+        ...updatedConversations[activeConversationId].messages,
+        newMessage
+      ]
+    };
+    
+    // Eliminar la conversación actual para reordenarla
+    delete updatedConversations[activeConversationId];
+    
+    // Añadir la conversación actualizada al principio
+    setConversations({
+      [activeConversationId]: updatedConversation,
+      ...updatedConversations
+    });
+    
+    // Limpiar el input
     setInputValue('');
-    setSending(true);
-
-    try {
-      const resp = await apiSendMessage(convId, text);
-      const aiMsg: ChatMessage = {
-        id: Date.now(),
-        text: resp.response || 'No lo sé con la información disponible',
+    
+    // Simular respuesta del asistente
+    setTimeout(() => {
+      const aiResponse: ChatMessage = {
+        id: `msg_${Date.now()}`,
+        text: `Esta es una respuesta de ejemplo a: "${newMessage.text}"`,
         sender: 'ai',
-        timestamp: new Date(),
+        timestamp: new Date()
       };
-      setMessagesByConv(prev => ({
-        ...prev,
-        [convId]: [...(prev[convId] || []), aiMsg],
-      }));
-
-      // Reordenar conversación al tope (updatedAt ahora)
-      setConversations(prev => {
-        const updated = prev.map(c => (c.id === convId ? { ...c, updatedAt: new Date() } : c));
-        return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      
+      setConversations(prevState => {
+        const updatedConversation = {
+          ...prevState[activeConversationId],
+          messages: [
+            ...prevState[activeConversationId].messages,
+            aiResponse
+          ]
+        };
+        
+        // Eliminar la conversación actual para reordenarla
+        const { [activeConversationId]: _, ...restConversations } = prevState;
+        
+        // Añadir la conversación actualizada al principio
+        return {
+          [activeConversationId]: updatedConversation,
+          ...restConversations
+        };
       });
-    } catch (e) {
-      console.error('Error enviando mensaje', e);
-      const errMsg: ChatMessage = {
-        id: Date.now(),
-        text: 'Error al obtener respuesta del asistente.',
-        sender: 'ai',
-        timestamp: new Date(),
-      };
-      setMessagesByConv(prev => ({
-        ...prev,
-        [convId]: [...(prev[convId] || []), errMsg],
-      }));
-    } finally {
-      setSending(false);
-    }
+    }, 1000);
   };
-
-  // Ordenar para el sidebar por updatedAt desc
-  const sortedConversations: ChatConversation[] = useMemo(() => {
-    return [...conversations].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-  }, [conversations]);
-
+  
+  // Ordenar las conversaciones para el sidebar
+  const sortedConversations = Object.values(conversations);
+  
+  // Verificar si hay conversaciones
   const hasConversations = sortedConversations.length > 0;
-  const activeMessages: ChatMessage[] = activeConversationId ? (messagesByConv[activeConversationId] || []) : [];
-
-  // Autoscroll al final cuando cambian los mensajes
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  
+  // Para depuración - mostrar en consola cada vez que el estado cambia
   useEffect(() => {
-    if (activeConversationId) scrollToBottom();
-  }, [activeConversationId, activeMessages]);
-
+    console.log("Estado actualizado:");
+    console.log("Conversaciones:", conversations);
+    console.log("Conversación activa:", activeConversationId);
+    console.log("¿Hay conversaciones?", hasConversations);
+  }, [conversations, activeConversationId, hasConversations]);
+  
+  // Función para hacer autoscroll al final de los mensajes
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  
+  // Hacer autoscroll cuando cambian los mensajes
+  useEffect(() => {
+    if (activeConversationId && conversations[activeConversationId]) {
+      scrollToBottom();
+    }
+  }, [conversations, activeConversationId]);
+  
   return (
     <div className="chat-interface">
       <div className="chat-sidebar-container open">
-        <ChatSidebar
+        <ChatSidebar 
           conversations={sortedConversations}
           activeConversationId={activeConversationId}
           onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
           onDeleteConversation={handleDeleteConversation}
           onRenameConversation={handleRenameConversation}
         />
       </div>
-
+      
       <div className="chat-main-container">
         {hasConversations && activeConversationId ? (
+          // Si hay conversaciones y una está activa, mostrar el chat
           <div className="chat-content">
             <div className="chat-header">
-              <h2>{conversations.find(c => c.id === activeConversationId)?.title || 'Chat'}</h2>
+              <h2>{conversations[activeConversationId]?.title || 'Chat'}</h2>
             </div>
-
+            
             <div className="messages-container">
-              {activeMessages.map((message) => (
-                <div
-                  key={message.id}
+              {conversations[activeConversationId]?.messages.map(message => (
+                <div 
+                  key={message.id} 
                   className={`message ${message.sender === 'user' ? 'user-message' : 'ai-message'}`}
                 >
                   <div className="message-content">{message.text}</div>
@@ -247,29 +324,30 @@ const ChatInterface: React.FC = () => {
                   </div>
                 </div>
               ))}
-              <div style={{ paddingBottom: '20px' }} ref={messagesEndRef}></div>
+              {/* Espacio adicional para asegurar que los mensajes se vean bien al hacer scroll */}
+              <div style={{ paddingBottom: "20px" }} ref={messagesEndRef}></div>
             </div>
-
+            
             <div className="message-input-container">
               <input
                 type="text"
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !sending && handleSendMessage()}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Escribe un mensaje..."
                 className="message-input"
-                disabled={!activeConversationId}
               />
-              <button
-                onClick={handleSendMessage}
+              <button 
+                onClick={handleSendMessage} 
                 className="send-button"
-                disabled={!inputValue.trim() || !activeConversationId || sending}
+                disabled={!inputValue.trim()}
               >
-                {sending ? 'Enviando…' : 'Enviar'}
+                Enviar
               </button>
             </div>
           </div>
         ) : (
+          // Si no hay conversaciones o ninguna está activa, mostrar el componente sin conversaciones
           <ChatNoConversation onNewConversation={handleNewConversation} />
         )}
       </div>

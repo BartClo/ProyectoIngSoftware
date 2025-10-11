@@ -1,0 +1,93 @@
+.create-form {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.field-label {
+  display: grid;
+  gap: 6px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  background: #eef2f7;
+  color: #002855;
+  border: 1px solid #cfd7e3;
+  border-radius: 16px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.chip button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #002855;
+}
+
+.user-typeahead {
+  position: relative;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e1e6ef;
+  border-radius: 6px;
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.suggestion-item {
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.suggestion-item:hover {
+  background: #f2f6fb;
+}
+
+.files-list {
+  display: grid;
+  gap: 6px;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e1e6ef;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #fff;
+}
+
+.create-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.small.primary {
+  background: #002855;
+  color: #fff;
+  border: none;
+}
+
+.small.primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

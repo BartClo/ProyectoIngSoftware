@@ -2,11 +2,10 @@ import { useState } from 'react';
 import logoUSS from '../../assets/style/LogoUSS.svg';
 import fondoUSS from '../../assets/style/FondoUSS.svg';
 import './login.css';
-
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+import { loginAPI } from '../../lib/api';
 
 interface LoginProps {
-  onLogin: (email: string) => void;
+  onLogin: (email: string, asAdmin: boolean) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -18,49 +17,33 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const value = e.target.value;
     setEmail(value);
     
-    // Validar que el correo termine con @docente.uss.cl solo cuando el usuario ha escrito algo
-    if (value && value.includes('@') && !value.endsWith('@docente.uss.cl')) {
+    // Validar que el correo termine con @docente.uss.cl o @admin.uss.cl cuando el usuario ha escrito algo
+    const allowed = value.endsWith('@docente.uss.cl') || value.endsWith('@admin.uss.cl');
+    if (value && value.includes('@') && !allowed) {
       setEmailError('Debe usar su correo institucional');
     } else {
       setEmailError('');
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailError) return;
-
-    try {
-      const formData = new URLSearchParams();
-      formData.append('username', email);
-      formData.append('password', password);
-
-      const res = await fetch(`${API_BASE_URL}/login/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData.toString(),
-      });
-
-      if (!res.ok) {
-        setEmailError('Credenciales inválidas');
-        return;
-      }
-
-      const data = await res.json();
-      const token = data?.access_token as string | undefined;
-      if (!token) {
-        setEmailError('Respuesta inválida del servidor');
-        return;
-      }
-
-      // Guardar token para siguientes peticiones
-      localStorage.setItem('authToken', token);
-      // Avisar al componente padre
-      onLogin(email);
-    } catch (err) {
-      console.error('Error en login:', err);
-      setEmailError('No se pudo conectar con el servidor');
+    // Aquí iría la lógica de autenticación
+    if (emailError) {
+      return;
     }
+    // Llamar al backend
+    loginAPI(email, password).then(() => {
+      const asAdmin = email.endsWith('@admin.uss.cl');
+      // Emitir evento global para que contextos/consumidores sepan que hay un login
+      try {
+        window.dispatchEvent(new CustomEvent('auth:login'));
+      } catch {}
+      onLogin(email, asAdmin);
+    }).catch(err => {
+      console.error('Login error', err);
+      alert('Credenciales inválidas o error de conexión');
+    });
   };
 
   return (
@@ -102,6 +85,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             />
             <span className="error-message"></span>
           </div>
+
+          {/* Eliminado selector de administrador: ahora el acceso admin depende del dominio @admin.uss.cl */}
           
           <button type="submit" className="login-button">
             Iniciar Sesión

@@ -1,102 +1,123 @@
-// Centralized API client for backend integration
-// Handles auth token, base URL, and typed endpoints for conversations and messages
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
-export const API_BASE_URL: string = (import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+type RequestOptions = {
+  method?: string;
+  body?: any;
+  headers?: Record<string, string>;
+};
 
-function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
-}
+export const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+export const setToken = (t: string) => { if (typeof window !== 'undefined') localStorage.setItem('access_token', t); };
 
-function buildHeaders(json: boolean = true): HeadersInit {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {};
-  if (json) headers['Content-Type'] = 'application/json';
+export async function api(path: string, opts: RequestOptions = {}) {
+  const url = API_BASE + path;
+  const headers: Record<string,string> = opts.headers ? { ...opts.headers } : {};
+  const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return headers;
-}
 
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const data = await res.json();
-      if (data?.detail) message = Array.isArray(data.detail) ? data.detail.map((d: any) => d.msg || d).join(', ') : String(data.detail);
-      if (data?.error) message = String(data.error);
-    } catch {}
-    throw new Error(message);
+  if (opts.body && !(opts.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
   }
-  return res.status === 204 ? (undefined as unknown as T) : await res.json();
+
+  const res = await fetch(url, { method: opts.method || 'GET', body: opts.body, headers });
+  const contentType = res.headers.get('content-type') || '';
+  if (!res.ok) {
+    let err = await res.text();
+    try { err = JSON.parse(err); } catch {}
+    throw { status: res.status, body: err };
+  }
+
+  // No content (204) -> resolver como null para evitar parsear body vacío
+  if (res.status === 204 || res.status === 205) return null;
+
+  // Si el servidor indica JSON pero el body viene vacío, leer como text y parsear con seguridad
+  if (contentType.includes('application/json')) {
+    const txt = await res.text();
+    if (!txt) return null;
+    return JSON.parse(txt);
+  }
+
+  return res.text();
 }
 
-// DTOs (backend response models)
-export interface ConversationDTO {
-  id: number;
-  title: string;
-  created_at: string; // ISO
-  updated_at: string; // ISO
+export async function loginAPI(username: string, password: string) {
+  // FastAPI expects form data for OAuth2PasswordRequestForm
+  const body = new URLSearchParams();
+  body.append('username', username);
+  body.append('password', password);
+  const url = API_BASE + '/login/';
+  const res = await fetch(url, { method: 'POST', body });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw { status: res.status, body: txt };
+  }
+  const data = await res.json();
+  if (data?.access_token) setToken(data.access_token);
+  return data;
 }
 
-export interface MessageDTO {
-  id: number;
-  sender: 'user' | 'ai';
-  text: string;
-  created_at: string; // ISO
+export async function fetchUsers() {
+  return api('/admin/users/');
 }
 
-export interface ChatResponseDTO {
-  response: string;
-  sources: string[];
+export async function createAdminUser(payload: { email: string; password: string; nombre?: string }) {
+  return api('/admin/users/', { method: 'POST', body: payload });
 }
 
-// Conversations
-export async function listConversations(): Promise<ConversationDTO[]> {
-  const res = await fetch(`${API_BASE_URL}/conversations/`, {
-    method: 'GET',
-    headers: buildHeaders(false),
-  });
-  return handleResponse<ConversationDTO[]>(res);
+export async function deleteAdminUser(userId: number) {
+  return api(`/admin/users/${userId}/`, { method: 'DELETE' });
 }
 
-export async function createConversation(payload: { title?: string; with_welcome?: boolean } = {}): Promise<ConversationDTO> {
-  const res = await fetch(`${API_BASE_URL}/conversations/`, {
-    method: 'POST',
-    headers: buildHeaders(true),
-    body: JSON.stringify({ with_welcome: true, ...payload }),
-  });
-  return handleResponse<ConversationDTO>(res);
+export async function createConversationAdmin(form: FormData) {
+  // send multipart/form-data to /admin/conversations/
+  const url = API_BASE + '/admin/conversations/';
+  const token = getToken();
+  const headers: Record<string,string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, { method: 'POST', body: form, headers });
+  if (!res.ok) throw { status: res.status, body: await res.text() };
+  return res.json();
 }
 
-export async function renameConversation(id: number, title: string): Promise<ConversationDTO> {
-  const res = await fetch(`${API_BASE_URL}/conversations/${id}/`, {
-    method: 'PATCH',
-    headers: buildHeaders(true),
-    body: JSON.stringify({ title }),
-  });
-  return handleResponse<ConversationDTO>(res);
+export async function listAdminConversations() {
+  return api('/admin/conversations/');
 }
 
-export async function deleteConversation(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/conversations/${id}/`, {
-    method: 'DELETE',
-    headers: buildHeaders(false),
-  });
-  return handleResponse<void>(res);
+export async function deleteAdminConversation(conversationId: number) {
+  return api(`/admin/conversations/${conversationId}/`, { method: 'DELETE' });
 }
 
-// Messages
-export async function listMessages(conversationId: number): Promise<MessageDTO[]> {
-  const res = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages/`, {
-    method: 'GET',
-    headers: buildHeaders(false),
-  });
-  return handleResponse<MessageDTO[]>(res);
+export async function uploadConversationAttachments(conversationId: number, form: FormData) {
+  const url = API_BASE + `/conversations/${conversationId}/attachments/`;
+  const token = getToken();
+  const headers: Record<string,string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, { method: 'POST', body: form, headers });
+  if (!res.ok) throw { status: res.status, body: await res.text() };
+  return res.json();
 }
 
-export async function sendMessage(conversationId: number, text: string): Promise<ChatResponseDTO> {
-  const res = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages/`, {
-    method: 'POST',
-    headers: buildHeaders(true),
-    body: JSON.stringify({ text }),
-  });
-  return handleResponse<ChatResponseDTO>(res);
+export async function createReport(payload: { report_type: string; comment?: string; conversation_id?: number }) {
+  return api('/reports/', { method: 'POST', body: payload });
+}
+
+export async function listAdminReports() {
+  return api('/admin/reports/');
+}
+
+export async function deleteConversation(conversationId: number) {
+  return api(`/conversations/${conversationId}/`, { method: 'DELETE' });
+}
+
+export async function getConversations() {
+  return api('/conversations/');
+}
+
+export async function getConversationMessages(conversationId: number) {
+  return api(`/conversations/${conversationId}/messages/`);
+}
+
+export async function createConversation() {
+  return api('/conversations/', { method: 'POST', body: { with_welcome: true } });
 }
