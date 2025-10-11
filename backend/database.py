@@ -10,8 +10,10 @@ try:
 except Exception:
     pass
 
-# Leer cadena de conexión desde entorno o usar un valor por defecto local
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:24631111@localhost/mi_proyecto")
+# Leer cadena de conexión desde entorno
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL no está configurada en las variables de entorno")
 
 # Configurar engine con pool_pre_ping para reconexiones resilientes
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
