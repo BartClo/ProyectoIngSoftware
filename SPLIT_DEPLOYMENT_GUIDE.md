@@ -17,16 +17,20 @@
 ### 1.2 Deploy Backend
 1. Click "New Project" → "Deploy from GitHub repo"
 2. Selecciona: `BartClo/ProyectoIngSoftware`
-3. En configuración:
-   - **Root Directory**: `/backend`
-   - **Build Command**: `pip install -r requirements.txt`
+3. Railway detectará automáticamente que es Python
+4. **IMPORTANTE**: En configuración, setear:
+   - **Root Directory**: `backend` (sin slash inicial)
    - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - Railway instalará automáticamente desde `backend/requirements.txt`
 
 ### 1.3 Agregar Base de Datos
-1. En tu proyecto Railway, click "New" → "Database" → "PostgreSQL"
-2. Railway automáticamente creará `DATABASE_URL`
+1. En tu proyecto Railway, click "New Service" → "Database" → "PostgreSQL"
+2. Railway automáticamente conectará la `DATABASE_URL`
+3. No necesitas configurar nada más, Railway maneja la conexión automáticamente
 
 ### 1.4 Variables de Entorno Railway
+En tu servicio backend, ve a **Variables** y agrega una por una:
+
 ```bash
 GROQ_API_KEY=gsk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 PINECONE_API_KEY=pcsk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -37,6 +41,8 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 ENVIRONMENT=production
 ```
+
+⚠️ **Nota**: La `DATABASE_URL` se genera automáticamente cuando agregas PostgreSQL.
 
 ### 1.5 Obtener URL del Backend
 Una vez desplegado, obtendrás algo como:
