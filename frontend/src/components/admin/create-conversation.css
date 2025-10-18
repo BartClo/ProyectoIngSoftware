@@ -91,3 +91,437 @@
   opacity: 0.7;
   cursor: not-allowed;
 }
+
+/* ===== ESTILOS PARA PESTAÑAS ===== */
+.tab-button {
+  background: #f8f9fa;
+  border: 1px solid #e1e6ef;
+  padding: 8px 16px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  background: #eef2f7;
+}
+
+.tab-button.active {
+  background: #002855;
+  color: #fff;
+  border-color: #002855;
+}
+
+/* ===== ESTILOS PARA CHATBOTS ===== */
+.users-table tr.selected {
+  background-color: #f0f8ff !important;
+  border-left: 4px solid #002855;
+}
+
+.status {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.status.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status.processed {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.small.danger {
+  background: #dc3545;
+  color: #fff;
+  border: none;
+}
+
+.small.danger:hover {
+  background: #c82333;
+}
+
+.small.danger:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ===== ESTILOS PARA TOAST ===== */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  background: #002855;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.3s ease-in-out;
+  max-width: 300px;
+}
+
+.toast.toast-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* ===== MEJORAS RESPONSIVAS ===== */
+@media (max-width: 768px) {
+  .admin-wrapper {
+    padding: 8px;
+  }
+  
+  .create-form {
+    padding: 12px;
+  }
+  
+  .tab-button {
+    font-size: 0.9em;
+    padding: 6px 12px;
+  }
+  
+  .table-scroll {
+    overflow-x: auto;
+  }
+  
+  .users-table {
+    min-width: 600px;
+  }
+}
+
+/* ===== ESTILOS PARA CONVERSACIONES MEJORADAS ===== */
+.conversation-card {
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.conversation-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.conversation-card.selected {
+  box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+}
+
+.conversations-grid {
+  scrollbar-width: thin;
+  scrollbar-color: #ccc transparent;
+}
+
+.conversations-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversations-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversations-grid::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 3px;
+}
+
+.conversations-grid::-webkit-scrollbar-thumb:hover {
+  background-color: #999;
+}
+
+/* ===== ESTILOS PARA PANEL DE DETALLES ===== */
+.detail-panel {
+  background: #fafbfc;
+  border-radius: 8px;
+  padding: 16px;
+  height: fit-content;
+}
+
+.detail-section {
+  background: white;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #e8eaed;
+}
+
+.detail-section h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 1em;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-badge.admin {
+  background: #fee;
+  color: #c62828;
+}
+
+.user-badge.write {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.user-badge.read {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+/* ===== ESTILOS PARA FORMULARIOS INLINE ===== */
+.inline-form {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.form-group {
+  flex: 1;
+  min-width: 120px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8em;
+  margin-bottom: 4px;
+  color: #666;
+  font-weight: 500;
+}
+
+.form-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #007acc;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+/* ===== ESTILOS PARA LISTA DE ELEMENTOS ===== */
+.item-list {
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid #e8eaed;
+  border-radius: 6px;
+  background: white;
+}
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.15s ease;
+}
+
+.item-row:last-child {
+  border-bottom: none;
+}
+
+.item-row:hover {
+  background-color: #f8f9fa;
+}
+
+.item-info {
+  flex: 1;
+}
+
+.item-title {
+  font-weight: 500;
+  font-size: 0.9em;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.item-subtitle {
+  font-size: 0.8em;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===== ESTILOS PARA BOTONES PEQUEÑOS ===== */
+.btn-sm {
+  padding: 3px 8px;
+  font-size: 0.75em;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.btn-sm:hover {
+  transform: translateY(-1px);
+}
+
+.btn-sm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-sm.primary {
+  background: #007acc;
+  color: white;
+}
+
+.btn-sm.primary:hover:not(:disabled) {
+  background: #005fa3;
+}
+
+.btn-sm.danger {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-sm.danger:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+.btn-sm.secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-sm.secondary:hover:not(:disabled) {
+  background: #545b62;
+}
+
+/* ===== ESTILOS PARA ESTADOS VACÍOS ===== */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.empty-state-icon {
+  font-size: 3em;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.empty-state-title {
+  font-size: 1.1em;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.empty-state-subtitle {
+  font-size: 0.9em;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* ===== ESTILOS PARA INDICADORES DE PROGRESO ===== */
+.progress-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 6px;
+  font-size: 0.9em;
+  color: #1565c0;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #bbdefb;
+  border-top: 2px solid #1565c0;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVIDAD MEJORADA ===== */
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .form-group {
+    min-width: auto;
+  }
+  
+  .item-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .conversations-grid {
+    gap: 8px;
+  }
+}

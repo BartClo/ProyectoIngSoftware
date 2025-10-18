@@ -2,14 +2,17 @@
 .chat-sidebar {
   display: flex;
   flex-direction: column;
-  height: calc(100% - 6px); /* Aumentado para que sea más grande verticalmente */
-  width: 100%; /* Asegurar que ocupe todo el ancho disponible */
+  height: 100%;
+  width: 320px; /* Ancho fijo para el sidebar */
+  min-width: 320px; /* Ancho mínimo */
+  max-width: 320px; /* Ancho máximo */
   background-color: rgb(255, 255, 255);
-  border: none; /* Eliminado el borde azul */
-  border-radius: 6px; /* Mantenemos esquinas redondeadas pero menos pronunciadas */
-  margin: 3px; /* Margen ligeramente mayor */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Añadido sombra sutil para dar profundidad */
-  overflow: hidden; /* Para que el contenido no se salga del borde redondeado */
+  border: none;
+  border-radius: 6px;
+  margin: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  flex-shrink: 0; /* No permitir que se encoja */
 }
 
 .sidebar-header {

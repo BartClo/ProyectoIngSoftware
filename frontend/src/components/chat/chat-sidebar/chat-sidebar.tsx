@@ -7,6 +7,7 @@ interface ChatConversation {
   id: string;
   title: string;
   createdAt: Date;
+  updatedAt?: Date;
   messages: any[];
 }
 
@@ -16,6 +17,7 @@ interface ChatSidebarProps {
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
   onRenameConversation: (id: string, newTitle: string) => void;
+  onNewConversation?: () => void;
 }
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -23,7 +25,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   activeConversationId,
   onSelectConversation,
   onDeleteConversation,
-  onRenameConversation
+  onRenameConversation,
+  onNewConversation
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -110,9 +113,11 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   
   const handleNewConversationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Las conversaciones deben crearse desde el panel de administración.
-    // Evitamos que el botón cree conversaciones locales.
-    alert('Las conversaciones deben ser creadas desde el Panel de Administración.');
+    if (onNewConversation) {
+      onNewConversation();
+    } else {
+      alert('Las conversaciones deben ser creadas desde el Panel de Administración.');
+    }
   };
 
   return (

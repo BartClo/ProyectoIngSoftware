@@ -1,356 +1,450 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import './chat-interface.css';
 import ChatSidebar from '../chat-sidebar/chat-sidebar';
 import ChatNoConversation from '../chat-no-conversation/chat-no-conversation';
-import './chat-interface.css';
-import { getConversations, getConversationMessages, deleteConversation } from '../../../lib/api';
+import { listConversations, sendMessage, deleteConversation, createConversation, listUserChatbots } from '../../../lib/api';
+import type { ChatbotInfo, ChatResponseDTO } from '../../../lib/api';
 
-// Interfaces
 interface ChatMessage {
-  id: string;
+  id: number;
   text: string;
   sender: 'user' | 'ai';
   timestamp: Date;
+  sources?: string[];
 }
 
 interface ChatConversation {
-  id: string;
+  id: string; // Cambiado a string para compatibilidad con sidebar
   title: string;
   createdAt: Date;
+  updatedAt: Date;
   messages: ChatMessage[];
+  chatbotId?: number; // ID del chatbot asociado
+  chatbotName?: string; // Nombre del chatbot asociado
 }
-interface ChatInterfaceProps { userEmail: string }
+
+interface ChatInterfaceProps {
+  userEmail: string;
+}
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
+  // Estados principales
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Record<string, ChatConversation>>({});
+  const [messagesByConv, setMessagesByConv] = useState<Record<string, ChatMessage[]>>({});
   const [inputValue, setInputValue] = useState('');
+  const [sending, setSending] = useState(false);
+  
+  // Estados para chatbots
+  const [availableChatbots, setAvailableChatbots] = useState<ChatbotInfo[]>([]);
+  const [selectedChatbot, setSelectedChatbot] = useState<ChatbotInfo | null>(null);
+  
+  // Estado para modal de selección de chatbot
+  const [showChatbotSelector, setShowChatbotSelector] = useState(false);
+  
+  // Ref para autoscroll
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Al montar, preferir cargar conversaciones del backend para usuarios autenticados.
-  // Solo usar localStorage como fallback para usuarios no autenticados.
+
+  // Cargar conversaciones y chatbots al montar
   useEffect(() => {
-    (async () => {
-      let loadedFromBackend = false;
-      if (userEmail) {
-        try {
-          const convs: any = await getConversations();
-          if (Array.isArray(convs)) {
-            const map: Record<string, ChatConversation> = {};
-            for (const c of convs) {
-              map[String(c.id)] = { id: String(c.id), title: c.title, createdAt: new Date(c.created_at), messages: [] };
-            }
-            setConversations(map);
-            const ids = Object.keys(map);
-            if (ids.length > 0) setActiveConversationId(ids[0]);
-            loadedFromBackend = true;
-          }
-        } catch (e) {
-          // Si falla la llamada al backend, permitimos usar el fallback local.
-          loadedFromBackend = false;
+    const loadData = async () => {
+      await loadChatbots();
+      await loadConversations();
+    };
+    loadData();
+  }, []);
+
+  // Cuando cambian los chatbots disponibles, revaluar la conversación activa
+  useEffect(() => {
+    if (activeConversationId && availableChatbots.length > 0) {
+      const activeConv = conversations.find(c => c.id === activeConversationId);
+      if (activeConv && activeConv.chatbotId) {
+        const associatedChatbot = availableChatbots.find(c => c.id === activeConv.chatbotId);
+        if (associatedChatbot) {
+          setSelectedChatbot(associatedChatbot);
         }
       }
+    }
+  }, [availableChatbots, activeConversationId, conversations]);
 
-      if (!loadedFromBackend) {
-        // Solo leer localStorage si no cargamos desde backend (ej: usuario no autenticado)
-        const savedConversations = localStorage.getItem('chatConversations');
-        if (savedConversations) {
-          try {
-            const parsed = JSON.parse(savedConversations);
-            const parsedWithDates: Record<string, ChatConversation> = {};
-            Object.entries(parsed).forEach(([id, conv]: [string, any]) => {
-              parsedWithDates[id] = {
-                ...conv,
-                createdAt: new Date(conv.createdAt),
-                messages: conv.messages.map((msg: any) => ({
-                  ...msg,
-                  timestamp: new Date(msg.timestamp)
-                }))
-              };
-            });
-
-            setConversations(parsedWithDates);
-
-            const conversationIds = Object.keys(parsedWithDates);
-            if (conversationIds.length > 0) {
-              const lastActiveId = localStorage.getItem('activeConversationId');
-              if (lastActiveId && parsedWithDates[lastActiveId]) {
-                setActiveConversationId(lastActiveId);
-              } else {
-                setActiveConversationId(conversationIds[0]);
-              }
-            }
-          } catch (error) {
-            console.error('Error parsing saved conversations:', error);
-            localStorage.removeItem('chatConversations');
+  // Cargar conversaciones desde el backend
+  const loadConversations = async () => {
+    try {
+      const convs = await listConversations();
+      const conversationsWithMessages: ChatConversation[] = convs.map((conv: any) => ({
+        id: String(conv.id), // Convertir a string
+        title: conv.title,
+        createdAt: new Date(conv.created_at),
+        updatedAt: new Date(conv.updated_at || conv.created_at),
+        messages: [],
+        chatbotId: conv.chatbot_id,
+        chatbotName: conv.chatbot_name
+      }));
+      
+      setConversations(conversationsWithMessages);
+      
+      // Seleccionar la primera conversación si existe
+      if (conversationsWithMessages.length > 0) {
+        setActiveConversationId(conversationsWithMessages[0].id);
+        // Si la conversación tiene un chatbot asociado, seleccionarlo
+        if (conversationsWithMessages[0].chatbotId) {
+          const associatedChatbot = availableChatbots.find(c => c.id === conversationsWithMessages[0].chatbotId);
+          if (associatedChatbot) {
+            setSelectedChatbot(associatedChatbot);
           }
         }
       }
-    })();
-  }, [userEmail]);
-  
-  // Guardar conversaciones en localStorage solo para usuarios NO autenticados.
-  useEffect(() => {
-    if (userEmail) return; // no persistir en localStorage para usuarios autenticados
-    if (Object.keys(conversations).length > 0) {
-      localStorage.setItem('chatConversations', JSON.stringify(conversations));
-    } else {
-      localStorage.removeItem('chatConversations');
-      localStorage.removeItem('activeConversationId');
+    } catch (error) {
+      console.error('Error loading conversations:', error);
     }
-  }, [conversations, userEmail]);
-  
-  // Guardar ID de conversación activa solo para usuarios no autenticados
-  useEffect(() => {
-    if (userEmail) return;
-    if (activeConversationId) {
-      localStorage.setItem('activeConversationId', activeConversationId);
-    } else {
-      localStorage.removeItem('activeConversationId');
+  };
+
+  // Cargar chatbots disponibles
+  const loadChatbots = async () => {
+    try {
+      const chatbots = await listUserChatbots();
+      setAvailableChatbots(Array.isArray(chatbots) ? chatbots : []);
+    } catch (error) {
+      console.error('Error loading chatbots:', error);
     }
-  }, [activeConversationId, userEmail]);
-  
-  // Manejar la selección de una conversación
+  };
+
+  // Manejar selección de conversación
   const handleSelectConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
-    // cargar mensajes desde backend
-    (async () => {
-      try {
-        const msgs: any = await getConversationMessages(Number(conversationId));
-        if (Array.isArray(msgs)) {
-          setConversations(prev => ({
-            ...prev,
-            [conversationId]: {
-              ...prev[conversationId],
-              messages: msgs.map((m: any) => ({ id: String(m.id), text: m.text, sender: m.sender as ('user'|'ai'), timestamp: new Date(m.created_at) }))
-            }
-          }));
-        }
-      } catch (e) {
-        // ignore
+    
+    // Buscar la conversación seleccionada y su chatbot asociado
+    const selectedConversation = conversations.find(c => c.id === conversationId);
+    if (selectedConversation && selectedConversation.chatbotId) {
+      const associatedChatbot = availableChatbots.find(c => c.id === selectedConversation.chatbotId);
+      if (associatedChatbot) {
+        setSelectedChatbot(associatedChatbot);
       }
-    })();
+    } else {
+      // Si no hay chatbot asociado, limpiar selección
+      setSelectedChatbot(null);
+    }
   };
-  
-  // Crear una nueva conversación
+
+  // Crear nueva conversación con chatbot específico
   const handleNewConversation = () => {
-    // Si el usuario está autenticado, crear la conversación en el backend
-    (async () => {
-      try {
-        const created: any = await (await import('../../../lib/api')).createConversation();
-        // created should be ConversationOut with numeric id
-        const convId = created?.id ? String(created.id) : `conv_${Date.now()}`;
-        const welcomeMessage: ChatMessage = { id: `msg_${Date.now()}`, text: "¡Hola! Soy tu asistente de IA USS. ¿Cómo puedo ayudarte hoy?", sender: 'ai', timestamp: new Date() };
-        const newConversation: ChatConversation = { id: convId, title: created?.title || 'Nueva conversación', createdAt: created?.created_at ? new Date(created.created_at) : new Date(), messages: [welcomeMessage] };
-        setConversations(prev => ({ [convId]: newConversation, ...prev }));
-        setActiveConversationId(convId);
-      } catch (e) {
-        // fallback local
-        const newConversationId = `conv_${Date.now()}`;
-        const welcomeMessage: ChatMessage = { id: `msg_${Date.now()}`, text: "¡Hola! Soy tu asistente de IA USS. ¿Cómo puedo ayudarte hoy?", sender: 'ai', timestamp: new Date() };
-        const newConversation: ChatConversation = { id: newConversationId, title: `Nueva conversación`, createdAt: new Date(), messages: [welcomeMessage] };
-        setConversations(prev => ({ [newConversationId]: newConversation, ...prev }));
-        setActiveConversationId(newConversationId);
-      }
-    })();
-  };
-  
-  // Eliminar conversación
-  const handleDeleteConversation = (conversationId: string) => {
-    // Intentar eliminar en backend si es un conv numérico
-    const parsed = Number(conversationId);
-    if (!Number.isNaN(parsed)) {
-      deleteConversation(parsed).then(() => {
-        setConversations(prevConversations => {
-          const { [conversationId]: deleted, ...remaining } = prevConversations;
-          if (conversationId === activeConversationId) {
-            const remainingIds = Object.keys(remaining);
-            if (remainingIds.length > 0) setActiveConversationId(remainingIds[0]); else setActiveConversationId(null);
-          }
-          return remaining;
-        });
-      }).catch(() => {
-        // fallback local
-        setConversations(prevConversations => {
-          const { [conversationId]: deleted, ...remaining } = prevConversations;
-          if (conversationId === activeConversationId) {
-            const remainingIds = Object.keys(remaining);
-            if (remainingIds.length > 0) setActiveConversationId(remainingIds[0]); else setActiveConversationId(null);
-          }
-          return remaining;
-        });
-      });
+    if (availableChatbots.length === 0) {
+      alert('No tienes acceso a ningún chatbot. Contacta al administrador.');
       return;
     }
-    // fallback local removal
-    setConversations(prevConversations => {
-      const { [conversationId]: deleted, ...remaining } = prevConversations;
-      if (conversationId === activeConversationId) {
-        const remainingIds = Object.keys(remaining);
-        if (remainingIds.length > 0) setActiveConversationId(remainingIds[0]); else setActiveConversationId(null);
-      }
-      return remaining;
-    });
+    
+    if (availableChatbots.length === 1) {
+      // Si solo hay un chatbot disponible, crearlo directamente
+      createConversationWithChatbot(availableChatbots[0]);
+    } else {
+      // Si hay múltiples chatbots, mostrar selector
+      setShowChatbotSelector(true);
+    }
   };
-  
-  // Renombrar conversación
-  const handleRenameConversation = (conversationId: string, newTitle: string) => {
-    setConversations(prevConversations => ({
-      ...prevConversations,
-      [conversationId]: {
-        ...prevConversations[conversationId],
-        title: newTitle
-      }
-    }));
-  };
-  
-  // Enviar un mensaje
-  const handleSendMessage = () => {
-    if (!inputValue.trim() || !activeConversationId) return;
-    
-    const newMessage: ChatMessage = {
-      id: `msg_${Date.now()}`,
-      text: inputValue,
-      sender: 'user',
-      timestamp: new Date()
-    };
-    
-    // Actualizar la conversación activa con el nuevo mensaje
-    const updatedConversations = { ...conversations };
-    const updatedConversation = { 
-      ...updatedConversations[activeConversationId],
-      messages: [
-        ...updatedConversations[activeConversationId].messages,
-        newMessage
-      ]
-    };
-    
-    // Eliminar la conversación actual para reordenarla
-    delete updatedConversations[activeConversationId];
-    
-    // Añadir la conversación actualizada al principio
-    setConversations({
-      [activeConversationId]: updatedConversation,
-      ...updatedConversations
-    });
-    
-    // Limpiar el input
-    setInputValue('');
-    
-    // Simular respuesta del asistente
-    setTimeout(() => {
-      const aiResponse: ChatMessage = {
-        id: `msg_${Date.now()}`,
-        text: `Esta es una respuesta de ejemplo a: "${newMessage.text}"`,
-        sender: 'ai',
-        timestamp: new Date()
+
+  // Crear conversación con chatbot específico
+  const createConversationWithChatbot = async (chatbot: ChatbotInfo) => {
+    try {
+      const newConv = await createConversation({ 
+        title: `Chat con ${chatbot.title}`,
+        chatbot_id: chatbot.id 
+      });
+      const conversation: ChatConversation = {
+        id: String(newConv.id),
+        title: newConv.title,
+        createdAt: new Date(newConv.created_at),
+        updatedAt: new Date(newConv.updated_at || newConv.created_at),
+        messages: [],
+        chatbotId: chatbot.id,
+        chatbotName: chatbot.title
       };
       
-      setConversations(prevState => {
-        const updatedConversation = {
-          ...prevState[activeConversationId],
-          messages: [
-            ...prevState[activeConversationId].messages,
-            aiResponse
-          ]
-        };
-        
-        // Eliminar la conversación actual para reordenarla
-        const { [activeConversationId]: _, ...restConversations } = prevState;
-        
-        // Añadir la conversación actualizada al principio
-        return {
-          [activeConversationId]: updatedConversation,
-          ...restConversations
-        };
-      });
-    }, 1000);
-  };
-  
-  // Ordenar las conversaciones para el sidebar
-  const sortedConversations = Object.values(conversations);
-  
-  // Verificar si hay conversaciones
-  const hasConversations = sortedConversations.length > 0;
-  
-  // Para depuración - mostrar en consola cada vez que el estado cambia
-  useEffect(() => {
-    console.log("Estado actualizado:");
-    console.log("Conversaciones:", conversations);
-    console.log("Conversación activa:", activeConversationId);
-    console.log("¿Hay conversaciones?", hasConversations);
-  }, [conversations, activeConversationId, hasConversations]);
-  
-  // Función para hacer autoscroll al final de los mensajes
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-  
-  // Hacer autoscroll cuando cambian los mensajes
-  useEffect(() => {
-    if (activeConversationId && conversations[activeConversationId]) {
-      scrollToBottom();
+      setConversations(prev => [conversation, ...prev]);
+      setActiveConversationId(conversation.id);
+      setSelectedChatbot(chatbot);
+      setShowChatbotSelector(false);
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      alert('No se pudo crear la conversación');
     }
-  }, [conversations, activeConversationId]);
+  };
+
+  // Eliminar conversación
+  const handleDeleteConversation = async (conversationId: string) => {
+    try {
+      await deleteConversation(Number(conversationId));
+      
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      setMessagesByConv(prev => {
+        const newMessages = { ...prev };
+        delete newMessages[conversationId];
+        return newMessages;
+      });
+
+      if (activeConversationId === conversationId) {
+        const remaining = conversations.filter(c => c.id !== conversationId);
+        setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('No se pudo eliminar la conversación');
+    }
+  };
+
+  // Renombrar conversación
+  const handleRenameConversation = async (conversationId: string, newTitle: string) => {
+    try {
+      // TODO: Implementar endpoint de rename en el backend
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId ? { ...c, title: newTitle } : c
+      ));
+    } catch (error) {
+      console.error('Error renaming conversation:', error);
+      alert('No se pudo renombrar la conversación');
+    }
+  };
+
+  // Enviar mensaje
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !activeConversationId) return;
+    
+    const text = inputValue;
+    const convId = activeConversationId;
+
+    // Mensaje del usuario (optimista)
+    const userMsg: ChatMessage = {
+      id: Date.now(),
+      text,
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessagesByConv(prev => ({
+      ...prev,
+      [convId]: [...(prev[convId] || []), userMsg],
+    }));
+    setInputValue('');
+    setSending(true);
+
+    try {
+      const resp: ChatResponseDTO = await sendMessage(Number(convId), text, selectedChatbot?.id);
+      const aiMsg: ChatMessage = {
+        id: Date.now() + 1,
+        text: resp.response || 'No pude generar una respuesta',
+        sender: 'ai',
+        timestamp: new Date(),
+        sources: resp.sources || [],
+      };
+      
+      setMessagesByConv(prev => ({
+        ...prev,
+        [convId]: [...(prev[convId] || []), aiMsg],
+      }));
+
+      // Reordenar conversación al tope
+      setConversations(prev => {
+        const updated = prev.map(c => (c.id === convId ? { ...c, updatedAt: new Date() } : c));
+        return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errMsg: ChatMessage = {
+        id: Date.now() + 1,
+        text: 'Error al obtener respuesta del asistente.',
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessagesByConv(prev => ({
+        ...prev,
+        [convId]: [...(prev[convId] || []), errMsg],
+      }));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Manejar Enter para enviar mensaje
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Ordenar conversaciones por fecha de actualización
+  const sortedConversations: ChatConversation[] = useMemo(() => {
+    return [...conversations].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }, [conversations]);
+
+  const hasConversations = sortedConversations.length > 0;
+  const activeMessages: ChatMessage[] = activeConversationId ? (messagesByConv[activeConversationId] || []) : [];
+
+  // Autoscroll al final cuando cambian los mensajes
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
   
+  useEffect(() => {
+    if (activeConversationId) scrollToBottom();
+  }, [activeMessages]);
+
   return (
     <div className="chat-interface">
-      <div className="chat-sidebar-container open">
-        <ChatSidebar 
-          conversations={sortedConversations}
-          activeConversationId={activeConversationId}
-          onSelectConversation={handleSelectConversation}
-          onDeleteConversation={handleDeleteConversation}
-          onRenameConversation={handleRenameConversation}
-        />
-      </div>
-      
-      <div className="chat-main-container">
-        {hasConversations && activeConversationId ? (
-          // Si hay conversaciones y una está activa, mostrar el chat
-          <div className="chat-content">
-            <div className="chat-header">
-              <h2>{conversations[activeConversationId]?.title || 'Chat'}</h2>
-            </div>
-            
-            <div className="messages-container">
-              {conversations[activeConversationId]?.messages.map(message => (
-                <div 
-                  key={message.id} 
-                  className={`message ${message.sender === 'user' ? 'user-message' : 'ai-message'}`}
-                >
-                  <div className="message-content">{message.text}</div>
-                  <div className="message-timestamp">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
+      {/* Sidebar */}
+      <ChatSidebar
+        conversations={sortedConversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
+        onRenameConversation={handleRenameConversation}
+      />
+
+      {/* Área principal */}
+      <div className="chat-main">
+        {/* Header con selección de chatbot */}
+        <div className="chat-header">
+          <div className="chatbot-selector">
+            <label htmlFor="chatbot-select">Chatbot: </label>
+            <select
+              id="chatbot-select"
+              value={selectedChatbot?.id || ''}
+              onChange={(e) => {
+                const chatbotId = Number(e.target.value);
+                const chatbot = availableChatbots.find(c => c.id === chatbotId);
+                setSelectedChatbot(chatbot || null);
+              }}
+              disabled={!activeConversationId || Boolean(conversations.find(c => c.id === activeConversationId)?.chatbotId)}
+            >
+              <option value="">Sin chatbot específico</option>
+              {availableChatbots.map(chatbot => (
+                <option key={chatbot.id} value={chatbot.id}>
+                  {chatbot.title} {chatbot.is_owner ? '(Tuyo)' : ''}
+                </option>
               ))}
-              {/* Espacio adicional para asegurar que los mensajes se vean bien al hacer scroll */}
-              <div style={{ paddingBottom: "20px" }} ref={messagesEndRef}></div>
-            </div>
-            
-            <div className="message-input-container">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Escribe un mensaje..."
-                className="message-input"
-              />
-              <button 
-                onClick={handleSendMessage} 
-                className="send-button"
-                disabled={!inputValue.trim()}
-              >
-                Enviar
-              </button>
-            </div>
+            </select>
           </div>
-        ) : (
-          // Si no hay conversaciones o ninguna está activa, mostrar el componente sin conversaciones
+          {selectedChatbot && (
+            <div className="chatbot-info">
+              <span className="chatbot-description">
+                {selectedChatbot.description}
+                {conversations.find(c => c.id === activeConversationId)?.chatbotId && (
+                  <em> (Chatbot predefinido para esta conversación)</em>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Área de conversación */}
+        {!hasConversations ? (
           <ChatNoConversation onNewConversation={handleNewConversation} />
+        ) : (
+          <div className="conversation-area">
+            {/* Mensajes */}
+            <div className="messages-container">
+              {activeConversationId ? (
+                activeMessages.map((msg) => (
+                  <div key={msg.id} className={`message ${msg.sender}`}>
+                    <div className="message-content">
+                      <div className="message-text">{msg.text}</div>
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="message-sources">
+                          <strong>Fuentes:</strong> {msg.sources.join(', ')}
+                        </div>
+                      )}
+                      <div className="message-timestamp">
+                        {msg.timestamp.toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="no-active-conversation">
+                  <p>Selecciona una conversación para comenzar a chatear</p>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input - solo mostrar si hay conversación activa */}
+            {activeConversationId && (
+              <div className="input-container">
+                <div className="input-wrapper">
+                  <textarea
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder={selectedChatbot ? `Pregunta a ${selectedChatbot.title}...` : "Escribe tu mensaje..."}
+                    rows={1}
+                    disabled={sending}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim() || sending}
+                    className="send-button"
+                  >
+                    {sending ? '⏳' : '📤'}
+                  </button>
+                </div>
+                {selectedChatbot && (
+                  <div className="selected-chatbot-indicator">
+                    Usando: {selectedChatbot.title}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
+
+      {/* Modal de selección de chatbot */}
+      {showChatbotSelector && (
+        <div className="chatbot-selector-modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Selecciona un Chatbot</h3>
+              <button 
+                className="close-button"
+                onClick={() => setShowChatbotSelector(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>Elige el chatbot con el que quieres iniciar una conversación:</p>
+              <div className="chatbots-grid">
+                {availableChatbots.map(chatbot => (
+                  <div 
+                    key={chatbot.id}
+                    className="chatbot-card"
+                    onClick={() => createConversationWithChatbot(chatbot)}
+                  >
+                    <div className="chatbot-card-header">
+                      <h4>{chatbot.title}</h4>
+                      {chatbot.is_owner && (
+                        <span className="owner-badge">Tuyo</span>
+                      )}
+                    </div>
+                    <p className="chatbot-description">
+                      {chatbot.description || 'Sin descripción disponible'}
+                    </p>
+                    <div className="chatbot-info">
+                      <span className="document-count">
+                        📄 Chatbot disponible
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div 
+            className="modal-backdrop"
+            onClick={() => setShowChatbotSelector(false)}
+          />
+        </div>
+      )}
     </div>
   );
 };

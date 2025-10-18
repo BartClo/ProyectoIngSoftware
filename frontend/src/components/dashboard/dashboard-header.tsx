@@ -71,6 +71,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             >
               Administración de usuarios
             </button>
+
             <button
               className={`cta-button ${activeAdminView === 'reports' ? 'active' : ''}`}
               onClick={onReportsClick}
@@ -81,9 +82,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <button
               className={`cta-button ${activeAdminView === 'create-conv' ? 'active' : ''}`}
               onClick={onCreateConversationClick}
-              title="Crear conversación"
+              title="Gestión de IA y Documentos"
             >
-              Crear conversación
+              Gestión de IA
             </button>
           </div>
         )}
