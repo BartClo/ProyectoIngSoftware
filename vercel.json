@@ -30,15 +30,5 @@
       "src": "/(.*)",
       "dest": "frontend/dist/$1"
     }
-  ],
-  "env": {
-    "GROQ_API_KEY": "@groq_api_key",
-    "PINECONE_API_KEY": "@pinecone_api_key",
-    "PINECONE_ENVIRONMENT": "gcp-starter",
-    "PINECONE_INDEX_NAME": "chatbot-rag-index",
-    "SECRET_KEY": "@secret_key",
-    "ALGORITHM": "HS256",
-    "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
-    "DATABASE_URL": "@database_url"
-  }
+  ]
 }
