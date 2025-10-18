@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "api.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -11,14 +15,35 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "api.py"
+    },
+    {
+      "src": "/docs",
+      "dest": "api.py"
+    },
+    {
+      "src": "/openapi.json",
+      "dest": "api.py"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/frontend/$1"
+      "dest": "frontend/dist/$1"
     }
   ],
-  "buildCommand": "cd frontend && npm ci && npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "cd frontend && npm ci",
+  "functions": {
+    "api.py": {
+      "maxDuration": 30
+    }
+  },
   "env": {
-    "VITE_API_URL": "@api_url"
+    "GROQ_API_KEY": "@groq_api_key",
+    "PINECONE_API_KEY": "@pinecone_api_key",
+    "PINECONE_ENVIRONMENT": "gcp-starter",
+    "PINECONE_INDEX_NAME": "chatbot-rag-index",
+    "SECRET_KEY": "@secret_key",
+    "ALGORITHM": "HS256",
+    "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+    "DATABASE_URL": "@database_url"
   }
 }
