@@ -31,11 +31,6 @@
       "dest": "frontend/dist/$1"
     }
   ],
-  "functions": {
-    "api.py": {
-      "maxDuration": 30
-    }
-  },
   "env": {
     "GROQ_API_KEY": "@groq_api_key",
     "PINECONE_API_KEY": "@pinecone_api_key",
