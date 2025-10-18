@@ -16,9 +16,10 @@ from models import (
 )
 from auth import get_current_user
 from services.pinecone_service import pinecone_service
-# from services.gemini_service import gemini_service  # Comentado - usando GPT4All
-# from services.ollama_service import ollama_service  # Comentado - usando GPT4All
-from services.gpt4all_service import gpt4all_service
+from services.groq_service import groq_service  # Groq - ultrarrápido y confiable
+# from services.gemini_service import gemini_service  # Archivado - problemas con API Key
+# from services.ollama_service import ollama_service  # Archivado - problemas de conectividad
+# from services.gpt4all_service import gpt4all_service  # Archivado - problemas de memoria
 from services.embedding_service import embedding_service
 
 router = APIRouter(prefix="/api/chat", tags=["Chat with RAG"])
@@ -131,20 +132,17 @@ async def send_message_with_rag(
             print(f"Error en búsqueda RAG: {str(e)}")
             # Continuar sin contexto en caso de error
     
-    # Generar respuesta usando GPT4All
+    # Generar respuesta usando Groq (ultrarrápido y confiable)
     try:
-        response_data = await gpt4all_service.generate_response(
+        response_data = await groq_service.generate_response(
             user_question=user_text,
             context_chunks=context_chunks,
             chatbot_name=chatbot_name
         )
         
-        # Código anterior con Gemini/Ollama (comentado):
-        # response_data = await gemini_service.generate_response(
-        #     user_question=user_text,
-        #     context_chunks=context_chunks,
-        #     chatbot_name=chatbot_name
-        # )
+        # Códigos archivados:
+        # response_data = await gemini_service.generate_response(...)  # Problemas API Key
+        # response_data = await gpt4all_service.generate_response(...)  # Problemas memoria
         
         if response_data.get("success"):
             ai_response = response_data.get("response", "")
@@ -306,22 +304,18 @@ async def send_message_to_conversation(
             "text": msg.text
         })
     
-    # Generar respuesta con GPT4All
+    # Generar respuesta con Groq (ultrarrápido y confiable)
     try:
-        response_data = await gpt4all_service.generate_response(
+        response_data = await groq_service.generate_response(
             user_question=user_text,
             context_chunks=context_chunks,
             chatbot_name=chatbot_name,
             conversation_history=conversation_history
         )
         
-        # Código anterior con Gemini/Ollama (comentado):
-        # response_data = await gemini_service.generate_response(
-        #     user_question=user_text,
-        #     context_chunks=context_chunks,
-        #     chatbot_name=chatbot_name,
-        #     conversation_history=conversation_history
-        # )
+        # Códigos archivados:
+        # response_data = await gemini_service.generate_response(...)  # Problemas API Key
+        # response_data = await gpt4all_service.generate_response(...)  # Problemas memoria
         
         if response_data.get("success"):
             ai_response = response_data.get("response", "")
@@ -456,6 +450,87 @@ async def get_available_chatbots(
         }
         for chatbot in sorted(all_chatbots, key=lambda x: x.title)
     ]
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    conversation_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db)
+):
+    """Eliminar una conversación y todos sus mensajes"""
+    
+    # Verificar que la conversación existe y el usuario tiene acceso
+    conversation = db.query(ConversationModel).filter(
+        ConversationModel.id == conversation_id,
+        ConversationModel.user_id == current_user.id
+    ).first()
+    
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    
+    try:
+        # Eliminar todos los mensajes de la conversación
+        db.query(MessageModel).filter(
+            MessageModel.conversation_id == conversation_id
+        ).delete()
+        
+        # Eliminar la conversación
+        db.delete(conversation)
+        db.commit()
+        
+        return {"message": "Conversación eliminada exitosamente"}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error eliminando conversación: {str(e)}"
+        )
+
+
+@router.patch("/conversations/{conversation_id}")
+async def update_conversation(
+    payload: dict,
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    conversation_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db)
+):
+    """Actualizar título de una conversación"""
+    
+    # Verificar que la conversación existe y el usuario tiene acceso
+    conversation = db.query(ConversationModel).filter(
+        ConversationModel.id == conversation_id,
+        ConversationModel.user_id == current_user.id
+    ).first()
+    
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    
+    # Actualizar título si se proporciona
+    if "title" in payload:
+        conversation.title = payload["title"]
+        conversation.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(conversation)
+    
+    # Obtener nombre del chatbot si aplica
+    chatbot_name = None
+    if conversation.chatbot_id:
+        chatbot = db.query(CustomChatbot).filter(
+            CustomChatbot.id == conversation.chatbot_id
+        ).first()
+        if chatbot:
+            chatbot_name = chatbot.title
+    
+    return ConversationOut(
+        id=conversation.id,
+        title=conversation.title,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
+        chatbot_id=conversation.chatbot_id,
+        chatbot_name=chatbot_name
+    )
 
 
 # Importar os para variables de entorno

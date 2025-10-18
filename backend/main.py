@@ -117,21 +117,51 @@ async def health_check():
     """Health check para servicios de monitoreo"""
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
+@app.get("/ai_health/")
+async def ai_health():
+    """Health check del sistema de IA (Groq)"""
+    try:
+        from services.groq_service import groq_service
+        
+        # Obtener información del modelo
+        model_info = groq_service.get_model_info()
+        
+        return {
+            "status": "healthy",
+            "ai_provider": "Groq",
+            "model": model_info["model_name"],
+            "provider_info": model_info["provider"],
+            "temperature": model_info["temperature"],
+            "max_tokens": model_info["max_tokens"],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "ai_provider": "Groq",
+            "model": "unknown",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 @app.get("/chatbot_info/")
 async def chatbot_info():
     """Información sobre el estado del chatbot"""
     return {
         "mode": "rag_enabled",
         "rag_enabled": True,
-        "description": "Chatbot con RAG usando Pinecone, Gemini 2.5 Flash y Sentence Transformers",
-        "model": "gemini-2.5-flash",
+        "description": "Chatbot con RAG usando Pinecone, Groq/Llama3 y Sentence Transformers",
+        "model": "llama-3.1-8b-instant",
+        "ai_provider": "Groq",
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
         "vector_store": "pinecone",
         "features": {
             "custom_chatbots": True,
             "document_processing": True,
             "semantic_search": True,
-            "multi_user": True
+            "multi_user": True,
+            "ultra_fast_inference": True
         }
     }
 

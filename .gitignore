@@ -14,6 +14,15 @@ venv/
 .env
 *.env
 
+# AI Models & Cache
+*.gguf
+embeddings_cache/
+context_docs/
+uploads/
+docstore.pkl
+vector_store.index
+.txt
+
 # Docker
 *.log
 db_data/
