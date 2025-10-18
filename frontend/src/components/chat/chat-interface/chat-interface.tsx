@@ -27,7 +27,7 @@ interface ChatInterfaceProps {
   userEmail: string;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) => {
   // Estados principales
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
