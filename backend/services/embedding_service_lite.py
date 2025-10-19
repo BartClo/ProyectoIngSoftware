@@ -48,11 +48,23 @@ class EmbeddingService:
         
         # Hash-based features para capturar contenido único
         text_hash = hash(text_lower)
+        
+        # Agregar features basadas en características del texto
+        char_counts = {}
+        for char in text_lower:
+            char_counts[char] = char_counts.get(char, 0) + 1
+        
+        # Features basadas en frecuencia de caracteres más comunes
+        common_chars = 'abcdefghijklmnopqrstuvwxyz0123456789 '
+        for char in common_chars[:min(20, self.dimension - len(features))]:
+            freq = char_counts.get(char, 0) / max(len(text), 1)
+            features.append(min(freq * 10, 1.0))  # Normalizar
+        
+        # Rellenar con features determinísticas simples
         for i in range(self.dimension - len(features)):
-            # Generar features pseudo-aleatorias pero determinísticas
-            seed = (text_hash + i) % (2**31)
-            np.random.seed(seed)
-            features.append(np.random.random())
+            # Usar operaciones matemáticas simples en lugar de random
+            val = ((text_hash + i * 7) % 1000) / 1000.0
+            features.append(val)
         
         # Normalizar el vector
         features = np.array(features[:self.dimension])
