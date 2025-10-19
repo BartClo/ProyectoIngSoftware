@@ -10,6 +10,8 @@ services:
       - port: 8000
         protocol: http
     environment:
+      - key: PYTHON_VERSION
+        value: "3.11"
       - key: GROQ_API_KEY
         value: SECRET
       - key: PINECONE_API_KEY  
@@ -26,6 +28,8 @@ services:
         value: "30"
       - key: ENVIRONMENT
         value: production
+      - key: USE_LITE_EMBEDDINGS
+        value: "true"
       - key: DATABASE_URL
         value: SECRET
     health_check:
@@ -34,4 +38,5 @@ services:
         path: /health
     build:
       buildpack: python
+      build_command: pip install -r requirements-render.txt
     run_command: uvicorn main:app --host 0.0.0.0 --port $PORT
