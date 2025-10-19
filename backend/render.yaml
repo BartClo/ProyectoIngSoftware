@@ -2,7 +2,7 @@ services:
   - type: web
     name: chatbot-rag-backend
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements-render.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
@@ -25,6 +25,8 @@ services:
         value: 30
       - key: ENVIRONMENT
         value: production
+      - key: USE_LITE_EMBEDDINGS
+        value: "true"
 
 databases:
   - name: chatbot-rag-db
