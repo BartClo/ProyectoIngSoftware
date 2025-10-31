@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import './users-table.css';
 import { useAdminData } from './admin-data-context';
+import { createAdminUser } from '../../lib/api';
 
 type Role = 'admin' | 'docente';
 
@@ -13,11 +14,15 @@ export interface UserRow {
 }
 
 const UsersTable: React.FC = () => {
-  const { users: usersCtx, setUsers: setUsersCtx } = useAdminData();
+  const { users: usersCtx, setUsers: setUsersCtx, refreshUsers } = useAdminData();
   const [users, setUsers] = useState<UserRow[]>(usersCtx);
+  // Mantener el estado local sincronizado con el contexto
+  React.useEffect(() => {
+    setUsers(usersCtx);
+  }, [usersCtx]);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Partial<UserRow>>({});
+  const [draft, setDraft] = useState<Partial<UserRow> & { password?: string }>({});
   // Para manejar creación
   const [newRowId, setNewRowId] = useState<string | null>(null);
 
@@ -66,13 +71,26 @@ const UsersTable: React.FC = () => {
   const saveEdit = () => {
     if (!editingId) return;
     const isNew = newRowId && editingId === newRowId;
+    // Si es nuevo, llamar a backend
+    if (isNew) {
+      const payload = { email: draft.email as string, password: (draft.password || 'changeme123'), nombre: draft.nombre as string };
+      createAdminUser(payload).then(() => {
+        refreshUsers().then(() => {
+          showToast('Usuario creado');
+          setNewRowId(null);
+          cancelEdit('save');
+        });
+      }).catch((e) => {
+        console.error('create user', e);
+        alert('Error creando usuario');
+      });
+      return;
+    }
     const updated = users.map(u => (u.id === editingId ? { ...(u as UserRow), ...(draft as UserRow), id: u.id } : u));
     setUsers(updated);
     setUsersCtx(updated);
     // Notificación en-app
-    showToast(isNew ? 'Usuario creado' : 'Usuario actualizado correctamente');
-    if (isNew) setNewRowId(null);
-    // Importante: pasar 'save' para que no intente borrar el nuevo por condición de cancelación
+    showToast('Usuario actualizado correctamente');
     cancelEdit('save');
   };
 
@@ -97,10 +115,34 @@ const UsersTable: React.FC = () => {
       // eslint-disable-next-line no-alert
       if (!(window as any).confirm || !(window as any).confirm('¿Eliminar usuario?')) return;
     } catch {}
+    // Si la fila corresponde a un usuario real (id numérico), pedir al backend que lo elimine
+    const isUuid = typeof id === 'string' && id.startsWith('u_') === false && id.length < 30;
+    if (isUuid) {
+      // intentar parsear como número
+      const parsed = Number(id);
+      if (!Number.isNaN(parsed)) {
+        // Llamar al backend
+        import('../../lib/api').then(mod => {
+          mod.deleteAdminUser(parsed).then(() => {
+            const updated = users.filter(u => u.id !== id);
+            setUsers(updated);
+            setUsersCtx(updated);
+            showToast('Usuario eliminado');
+          }).catch((e) => {
+            console.error('delete user', e);
+            alert('Error eliminando usuario en el servidor');
+          });
+        }).catch(() => {
+          showToast('No fue posible eliminar en servidor');
+        });
+        return;
+      }
+    }
+    // Fallback: eliminar localmente
     const updated = users.filter(u => u.id !== id);
     setUsers(updated);
     setUsersCtx(updated);
-    showToast('Usuario eliminado');
+    showToast('Usuario eliminado (local)');
   };
 
   const addUser = () => {
@@ -116,7 +158,7 @@ const UsersTable: React.FC = () => {
     setUsers(updated);
     setUsersCtx(updated);
     setEditingId(id);
-    setDraft({ ...nuevo });
+    setDraft({ ...nuevo, password: '' });
     setNewRowId(id);
     setPage(1);
   };
@@ -144,7 +186,7 @@ const UsersTable: React.FC = () => {
                 <th>Nombre</th>
                 <th>Correo</th>
                 <th>Rol</th>
-                <th>Estado</th>
+                <th>{newRowId ? 'Contraseña' : 'Estado'}</th>
                 <th style={{ width: 150 }}>Acciones</th>
               </tr>
             </thead>
@@ -189,14 +231,25 @@ const UsersTable: React.FC = () => {
                   </td>
                   <td>
                     {editingId === u.id ? (
-                      <select
-                        className="cell-input"
-                        value={String(draft.activo ?? true)}
-                        onChange={e => setDraft(d => ({ ...d, activo: e.target.value === 'true' }))}
-                      >
-                        <option value="true">Activo</option>
-                        <option value="false">Inactivo</option>
-                      </select>
+                      // Si es la fila nueva, mostrar input de contraseña en lugar del selector de estado
+                      (newRowId && editingId === newRowId) ? (
+                        <input
+                          className="cell-input"
+                          type="password"
+                          placeholder="Contraseña"
+                          value={String(draft.password ?? '')}
+                          onChange={e => setDraft(d => ({ ...d, password: e.target.value }))}
+                        />
+                      ) : (
+                        <select
+                          className="cell-input"
+                          value={String(draft.activo ?? true)}
+                          onChange={e => setDraft(d => ({ ...d, activo: e.target.value === 'true' }))}
+                        >
+                          <option value="true">Activo</option>
+                          <option value="false">Inactivo</option>
+                        </select>
+                      )
                     ) : (
                       <span className={u.activo ? 'badge success' : 'badge'}>
                         {u.activo ? 'Activo' : 'Inactivo'}

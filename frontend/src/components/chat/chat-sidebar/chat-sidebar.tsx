@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import './chat-sidebar.css';
 import ReportModal from '../reporte-model/report-modal';
+import { createReport } from '../../../lib/api';
 
 interface ChatConversation {
   id: string;
   title: string;
   createdAt: Date;
+  updatedAt?: Date;
   messages: any[];
 }
 
@@ -13,18 +15,18 @@ interface ChatSidebarProps {
   conversations: ChatConversation[];
   activeConversationId: string | null;
   onSelectConversation: (id: string) => void;
-  onNewConversation: () => void;
   onDeleteConversation: (id: string) => void;
   onRenameConversation: (id: string, newTitle: string) => void;
+  onNewConversation?: () => void;
 }
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({
   conversations,
   activeConversationId,
   onSelectConversation,
-  onNewConversation,
   onDeleteConversation,
-  onRenameConversation
+  onRenameConversation,
+  onNewConversation
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -77,10 +79,15 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     setShowReportModal(null);
   };
   
-  const handleReportSubmit = (reportData: any) => {
-    console.log('Reporte enviado:', reportData);
-    // Aquí puedes implementar la lógica para enviar el reporte al backend
-    alert('Reporte enviado correctamente');
+  const handleReportSubmit = async (reportData: any) => {
+    try {
+      console.log('Reporte enviado (frontend):', reportData);
+  await createReport({ report_type: reportData.reportType, comment: reportData.description, conversation_id: Number(reportData.conversationId) });
+      alert('Reporte enviado correctamente');
+    } catch (e) {
+      console.error('Error enviando reporte', e);
+      alert('No se pudo enviar el reporte. Intente de nuevo.');
+    }
     setShowReportModal(null);
   };
   
@@ -104,13 +111,22 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return date.toLocaleDateString();
   };
   
+  const handleNewConversationClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onNewConversation) {
+      onNewConversation();
+    } else {
+      alert('Las conversaciones deben ser creadas desde el Panel de Administración.');
+    }
+  };
+
   return (
     <div className="chat-sidebar">
       <div className="sidebar-header">
         <h2>Conversaciones</h2>
         <button 
           className="new-conversation-button" 
-          onClick={onNewConversation}
+          onClick={handleNewConversationClick}
         >
           <span className="icon">💬</span> Nueva conversación
         </button>

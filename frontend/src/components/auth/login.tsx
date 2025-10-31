@@ -2,6 +2,7 @@ import { useState } from 'react';
 import logoUSS from '../../assets/style/LogoUSS.svg';
 import fondoUSS from '../../assets/style/FondoUSS.svg';
 import './login.css';
+import { loginAPI } from '../../lib/api';
 
 interface LoginProps {
   onLogin: (email: string, asAdmin: boolean) => void;
@@ -31,11 +32,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     if (emailError) {
       return;
     }
-    
-    // Simulamos autenticación exitosa y pasamos el correo al componente padre
-    const asAdmin = email.endsWith('@admin.uss.cl');
-    console.log('Email:', email, 'Password:', password, 'Admin:', asAdmin);
-    onLogin(email, asAdmin);
+    // Llamar al backend
+    loginAPI(email, password).then(() => {
+      const asAdmin = email.endsWith('@admin.uss.cl');
+      // Emitir evento global para que contextos/consumidores sepan que hay un login
+      try {
+        window.dispatchEvent(new CustomEvent('auth:login'));
+      } catch {}
+      onLogin(email, asAdmin);
+    }).catch(err => {
+      console.error('Login error', err);
+      alert('Credenciales inválidas o error de conexión');
+    });
   };
 
   return (

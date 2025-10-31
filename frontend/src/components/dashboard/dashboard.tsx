@@ -35,7 +35,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, onLogout }) => {
       
       <div className="dashboard-content">
         {/* Interfaz de chat principal */}
-        <ChatInterface />
+        <ChatInterface userEmail={userEmail} />
         
         {/* Panel de configuración condicional */}
         {showSettings && (
