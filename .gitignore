@@ -8,10 +8,20 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+venv/
 
 # Env
 .env
 *.env
+
+# AI Models & Cache
+*.gguf
+embeddings_cache/
+context_docs/
+uploads/
+docstore.pkl
+vector_store.index
+.txt
 
 # Docker
 *.log
