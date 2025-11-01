@@ -1,14 +1,70 @@
+/* =================================================================
+   HEURÍSTICAS DE NIELSEN APLICADAS EN USERS-TABLE
+   =================================================================
+   
+   1. VISIBILIDAD DEL ESTADO DEL SISTEMA (Visibility of system status)
+      - Toast notifications para feedback inmediato
+      - Badges de estado (Activo/Inactivo) con colores distintivos
+      - Estados de edición claramente diferenciados
+   
+   2. RELACIÓN ENTRE EL SISTEMA Y EL MUNDO REAL (Match between system and real world)
+      - Lenguaje claro: "Nuevo Usuario", "Guardar", "Cancelar"
+      - Íconos y labels entendibles por usuarios no técnicos
+   
+   3. CONTROL Y LIBERTAD DEL USUARIO (User control and freedom)
+      - Botón "Cancelar" siempre visible durante edición
+      - Confirmación antes de eliminar (modal de confirmación)
+      - Posibilidad de deshacer cambios sin guardar
+   
+   4. CONSISTENCIA Y ESTÁNDARES (Consistency and standards)
+      - Colores consistentes con el dashboard (#002855 azul USS)
+      - Botones con mismo estilo en toda la interfaz
+      - Espaciado y tipografía uniforme
+   
+   5. PREVENCIÓN DE ERRORES (Error prevention)
+      - Inputs validados en línea
+      - Confirmación antes de acciones destructivas
+      - Campos requeridos claramente marcados
+   
+   6. RECONOCIMIENTO ANTES QUE RECUERDO (Recognition rather than recall)
+      - Placeholders descriptivos en campos de búsqueda
+      - Labels visibles en formularios
+      - Estados visibles (no requiere recordar estado anterior)
+   
+   7. FLEXIBILIDAD Y EFICIENCIA DE USO (Flexibility and efficiency of use)
+      - Búsqueda rápida en tiempo real
+      - Edición inline (sin modales extra)
+      - Paginación para manejar grandes volúmenes
+   
+   8. DISEÑO ESTÉTICO Y MINIMALISTA (Aesthetic and minimalist design)
+      - Sin elementos decorativos innecesarios
+      - Colores azules y blancos (paleta limitada)
+      - Espaciado generoso para claridad
+   
+   9. AYUDAR A USUARIOS A RECONOCER Y RECUPERARSE DE ERRORES
+      - Mensajes de error claros (toasts)
+      - Color rojo para acciones destructivas
+      - Feedback visual inmediato
+   
+   10. AYUDA Y DOCUMENTACIÓN (Help and documentation)
+       - Placeholders informativos
+       - Labels descriptivos
+       - Mensajes contextuales
+   
+   ================================================================= */
+
 .admin-wrapper {
   width: 100%;
   height: calc(100vh - 60px);
   padding: 16px;
   overflow: auto;
+  background: #f5f7fb; /* H8: Fondo neutro para contraste */
 }
 
 .admin-card {
   background: #fff;
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 40, 85, 0.1); /* H4: Sombra con azul USS */
   overflow: hidden;
 }
 
@@ -16,136 +72,237 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eef0f4;
+  padding: 20px 24px;
+  border-bottom: 2px solid #002855; /* H4: Borde azul USS para consistencia */
+  background: linear-gradient(to right, #ffffff, #f9fafc); /* H8: Gradiente sutil */
 }
 
 .admin-card-header h2 {
   margin: 0;
-  color: #002855;
-  font-size: 18px;
+  color: #002855; /* H4: Color azul USS consistente */
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
 .admin-card-header .actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  align-items: center;
 }
 
+/* H6 & H10: Campo de búsqueda con placeholder descriptivo */
 .search {
-  padding: 10px 12px;
-  border: 1px solid #d8dde6;
+  padding: 10px 14px;
+  border: 2px solid #d8dde6;
   border-radius: 6px;
-  min-width: 260px;
+  min-width: 280px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  background: #fff;
 }
 
+.search:focus {
+  outline: none;
+  border-color: #002855; /* H1 & H9: Feedback visual al enfocar */
+  box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.1);
+}
+
+/* H4: Botón primario con colores del dashboard */
 .primary {
-  background: #002855;
+  background: #002855; /* Color azul USS del dashboard */
   color: #fff;
-  border: none;
-  padding: 10px 14px;
+  border: 2px solid #002855;
+  padding: 10px 16px;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.2);
 }
 
-.primary:hover { background: #001f40; }
+.primary:hover { 
+  background: #001f40; /* H1: Feedback visual al hover */
+  border-color: #001f40;
+  box-shadow: 0 4px 8px rgba(0, 40, 85, 0.3);
+  transform: translateY(-1px);
+}
 
-.table-scroll { width: 100%; overflow: auto; }
+.primary:active {
+  transform: translateY(0); /* H1: Feedback táctil al click */
+}
+
+/* H7: Scroll optimizado para grandes volúmenes */
+.table-scroll { 
+  width: 100%; 
+  overflow: auto;
+  max-height: calc(100vh - 280px); /* H8: Evitar scroll excesivo */
+}
 
 .users-table {
   width: 100%;
   border-collapse: collapse;
 }
 
+/* H4 & H8: Encabezados con estilo consistente y minimalista */
 .users-table thead th {
   position: sticky;
   top: 0;
-  background: #f9fafc;
-  color: #002855;
+  background: #002855; /* Color azul USS del dashboard */
+  color: #ffffff;
   text-align: left;
   font-weight: 600;
   font-size: 13px;
-  padding: 12px 16px;
-  border-bottom: 1px solid #eef0f4;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 14px 16px;
+  border-bottom: 3px solid #001f40;
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.1); /* H1: Separación visual */
 }
 
+/* H6: Celdas con buen contraste y legibilidad */
 .users-table tbody td {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f1f3f7;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e8ebf2;
   font-size: 14px;
+  color: #1f2937;
+  vertical-align: middle;
 }
 
-.users-table tbody tr:hover { background: #fafbfd; }
+/* H1: Feedback visual al hover sobre filas */
+.users-table tbody tr:hover { 
+  background: #f0f4f8;
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.05);
+}
 
-.users-table tbody tr.inactive { opacity: 0.72; }
+/* H1 & H6: Usuarios inactivos visualmente diferenciados */
+.users-table tbody tr.inactive { 
+  opacity: 0.6;
+  background: #f9f9f9;
+}
 
+/* H5 & H9: Inputs con validación visual */
 .cell-input {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #d8dde6;
+  padding: 8px 12px;
+  border: 2px solid #d8dde6;
   border-radius: 6px;
   font-size: 14px;
+  transition: all 0.2s ease;
+  background: #fff;
 }
 
+.cell-input:focus {
+  outline: none;
+  border-color: #002855; /* H1: Feedback al enfocar */
+  box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.1);
+}
+
+/* H1: Badges con estados claramente visibles */
 .badge {
   display: inline-block;
-  padding: 4px 8px;
+  padding: 6px 12px;
   border-radius: 999px;
   background: #e8ebf2;
   color: #3a4760;
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 .badge.success {
-  background: #e6f4ea;
-  color: #1b5e20;
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
 
-.row-actions { display: flex; gap: 8px; }
+/* H7: Acciones agrupadas y organizadas */
+.row-actions { 
+  display: flex; 
+  gap: 8px;
+  justify-content: flex-start;
+}
 
+/* H4: Botones pequeños con estilo del dashboard */
 button.small {
-  padding: 6px 10px;
-  border: 1px solid #d8dde6;
+  padding: 8px 14px;
+  border: 2px solid #002855;
   background: #fff;
   color: #002855;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-button.small:hover { background: #f6f8fb; }
+/* H1: Feedback visual al hover */
+button.small:hover { 
+  background: #002855;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 40, 85, 0.3);
+  transform: translateY(-1px);
+}
 
+/* H4: Botón primario pequeño (Guardar) */
+button.small.primary {
+  background: #002855;
+  color: #fff;
+  border-color: #002855;
+}
+
+button.small.primary:hover { 
+  background: #001f40;
+  border-color: #001f40;
+}
+
+/* H9: Botón de peligro claramente diferenciado */
 button.small.danger {
-  border-color: #f3c0bf;
-  color: #b71c1c;
+  border-color: #dc3545;
+  color: #dc3545;
+  background: #fff;
 }
 
-button.small.danger:hover { background: #fff3f2; }
+button.small.danger:hover { 
+  background: #dc3545;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
+}
 
-/* Mantener altura de filas estable durante edición */
+/* H4 & H8: Altura consistente para estabilidad visual */
 .users-table tbody tr.fixed-height {
-  height: 56px;
+  height: 60px;
 }
 .users-table tbody tr.fixed-height td {
   vertical-align: middle;
 }
 .users-table .cell-input {
-  height: 36px;
+  height: 38px;
   box-sizing: border-box;
 }
 
-/* Toast de notificación */
+/* H1: Toast de notificación para feedback inmediato */
 .toast-notice {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: #002855;
+  bottom: 24px;
+  right: 24px;
+  background: #002855; /* Color azul USS del dashboard */
   color: #fff;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 24px rgba(0, 40, 85, 0.4);
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity .2s ease, transform .2s ease;
+  transition: opacity .25s ease, transform .25s ease;
   z-index: 2000;
+  font-weight: 500;
+  font-size: 14px;
+  min-width: 220px;
+  text-align: center;
+  border: 2px solid #001f40;
 }
 
 .toast-notice.show {
@@ -153,17 +310,38 @@ button.small.danger:hover { background: #fff3f2; }
   transform: translateY(0);
 }
 
-/* Paginación */
+/* H7: Paginación para eficiencia con grandes volúmenes */
 .pagination-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 16px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  background: linear-gradient(to right, #f9fafc, #ffffff);
+  border-top: 2px solid #002855;
 }
+
 .page-indicator {
-  color: #3a4760;
-  font-size: 13px;
+  color: #002855;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* H3: Botones de paginación con estados deshabilitados claros */
+.pagination-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #e8ebf2;
+  color: #495057;
+  border-color: #d8dde6;
+}
+
+.pagination-bar button:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background: #e8ebf2;
+  color: #495057;
 }
 
 /* Panel de detalle de reportes (expandible) */
