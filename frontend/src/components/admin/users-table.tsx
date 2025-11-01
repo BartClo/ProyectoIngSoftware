@@ -171,11 +171,18 @@ const UsersTable: React.FC = () => {
           <div className="actions">
             <input
               className="search"
-              placeholder="Buscar por nombre, correo o rol"
+              placeholder="Buscar por nombre, correo o rol."
               value={query}
               onChange={e => setQuery(e.target.value)}
+              aria-label="Campo de búsqueda de usuarios"
             />
-            <button className="primary" onClick={addUser}>+ Nuevo</button>
+            <button 
+              className="primary" 
+              onClick={addUser}
+              aria-label="Crear nuevo usuario"
+            >
+              Nuevo Usuario
+            </button>
           </div>
         </div>
 
@@ -259,13 +266,37 @@ const UsersTable: React.FC = () => {
                   <td className="row-actions">
                     {editingId === u.id ? (
                       <>
-                        <button className="small primary" onClick={saveEdit}>Guardar</button>
-                        <button className="small" onClick={() => cancelEdit('cancel')}>Cancelar</button>
+                        <button 
+                          className="small primary" 
+                          onClick={saveEdit}
+                          aria-label="Guardar cambios"
+                        >
+                          Guardar
+                        </button>
+                        <button 
+                          className="small" 
+                          onClick={() => cancelEdit('cancel')}
+                          aria-label="Cancelar edición"
+                        >
+                          Cancelar
+                        </button>
                       </>
                     ) : (
                       <>
-                        <button className="small" onClick={() => startEdit(u.id)}>Editar</button>
-                        <button className="small danger" onClick={() => removeUser(u.id)}>Eliminar</button>
+                        <button 
+                          className="small" 
+                          onClick={() => startEdit(u.id)}
+                          aria-label={`Editar usuario ${u.nombre}`}
+                        >
+                          Editar
+                        </button>
+                        <button 
+                          className="small danger" 
+                          onClick={() => removeUser(u.id)}
+                          aria-label={`Eliminar usuario ${u.nombre}`}
+                        >
+                          Eliminar
+                        </button>
                       </>
                     )}
                   </td>
@@ -284,9 +315,25 @@ const UsersTable: React.FC = () => {
         {/* Paginación */}
         {filtered.length > 0 && (
           <div className="pagination-bar">
-            <button className="small" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Anterior</button>
-            <span className="page-indicator">Página {page} de {totalPages}</span>
-            <button className="small" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Siguiente</button>
+            <button 
+              className="small" 
+              onClick={() => setPage(p => Math.max(1, p - 1))} 
+              disabled={page === 1}
+              aria-label="Página anterior"
+            >
+              ← Anterior
+            </button>
+            <span className="page-indicator" role="status">
+              Página {page} de {totalPages} ({filtered.length} usuario{filtered.length !== 1 ? 's' : ''})
+            </span>
+            <button 
+              className="small" 
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+              disabled={page === totalPages}
+              aria-label="Página siguiente"
+            >
+              Siguiente →
+            </button>
           </div>
         )}
       </div>
