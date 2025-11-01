@@ -78,6 +78,7 @@ const CreateConversation: React.FC = () => {
   const [descripcion, setDescripcion] = useState('');
   const [usuarios, setUsuarios] = useState<string[]>([]);
   const [usuarioQuery, setUsuarioQuery] = useState('');
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [archivos, setArchivos] = useState<ConversationFile[]>([]);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -104,11 +105,6 @@ const CreateConversation: React.FC = () => {
 
   // Estados para toast
   const [toasts, setToasts] = useState<Array<{id: string, message: string, show: boolean}>>([]);
-
-  // Sugerencias de email para buscar usuarios
-  const emailSuggestions = allUsers.filter(user => 
-    user.email.toLowerCase().includes(usuarioQuery.toLowerCase()) && user.activo
-  );
 
   // Sugerencias de email para agregar usuarios
   const userEmailSuggestions = allUsers.filter(user => 
@@ -243,10 +239,11 @@ const CreateConversation: React.FC = () => {
     }
   };
 
-  const addUsuario = (email: string) => {
-    if (email && !usuarios.includes(email)) {
+  const toggleUsuario = (email: string) => {
+    if (usuarios.includes(email)) {
+      setUsuarios(prev => prev.filter(u => u !== email));
+    } else {
       setUsuarios(prev => [...prev, email]);
-      setUsuarioQuery('');
     }
   };
 
@@ -417,7 +414,7 @@ const CreateConversation: React.FC = () => {
         </div>
         <div className="create-form">
           <label className="field-label">
-            <span>Título</span>
+            <span className="section-title">Título</span>
             <input 
               className="cell-input" 
               value={titulo} 
@@ -427,7 +424,7 @@ const CreateConversation: React.FC = () => {
           </label>
 
           <label className="field-label">
-            <span>Descripción (opcional)</span>
+            <span className="section-title">Descripción (opcional)</span>
             <textarea 
               className="cell-input" 
               value={descripcion} 
@@ -437,29 +434,228 @@ const CreateConversation: React.FC = () => {
             />
           </label>
 
+          {/* Campo de usuarios con selector visual y scroll */}
           <label className="field-label">
-            <span>Usuarios (email) - Opcional</span>
-            <div className="user-typeahead">
-              <input
-                className="cell-input"
-                value={usuarioQuery}
-                onChange={e => setUsuarioQuery(e.target.value)}
-                placeholder="Escriba el email del usuario..."
-              />
-              {usuarioQuery && emailSuggestions.length > 0 && (
-                <div className="suggestions">
-                  {emailSuggestions.slice(0, 5).map(user => (
-                    <div key={user.email} className="suggestion-item" onClick={() => addUsuario(user.email)}>
-                      {user.email} - {user.nombre}
-                    </div>
-                  ))}
+            <span className="section-title">Usuarios con acceso</span>
+            <div style={{ position: 'relative' }}>
+              {/* Botón para mostrar/ocultar dropdown */}
+              <button
+                type="button"
+                className="user-selector-toggle"
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  background: 'white',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '0.95em',
+                  color: usuarios.length > 0 ? '#002855' : '#666',
+                  transition: 'all 0.2s ease'
+                }}
+                aria-label="Seleccionar usuarios"
+                aria-expanded={showUserDropdown}
+              >
+                <span>
+                  {usuarios.length === 0 
+                    ? 'Seleccionar usuarios...' 
+                    : `${usuarios.length} usuario${usuarios.length !== 1 ? 's' : ''} seleccionado${usuarios.length !== 1 ? 's' : ''}`
+                  }
+                </span>
+                <span style={{ 
+                  fontSize: '1.2em', 
+                  color: '#002855',
+                  transform: showUserDropdown ? 'rotate(180deg)' : 'rotate(0)',
+                  transition: 'transform 0.2s ease'
+                }}>
+                  ▼
+                </span>
+              </button>
+
+              {/* Dropdown con scroll de usuarios */}
+              {showUserDropdown && (
+                <div className="user-dropdown-scroll" style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  left: 0,
+                  right: 0,
+                  maxHeight: '280px',
+                  overflowY: 'auto',
+                  background: 'white',
+                  border: '1px solid #002855',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(0, 40, 85, 0.15)',
+                  zIndex: 1000,
+                  padding: '8px 0'
+                }}>
+                  {/* Búsqueda rápida dentro del dropdown */}
+                  <div style={{ padding: '8px 12px', borderBottom: '1px solid #e0e0e0' }}>
+                    <input 
+                      type="text"
+                      className="cell-input"
+                      value={usuarioQuery} 
+                      onChange={e => setUsuarioQuery(e.target.value)}
+                      placeholder="🔍 Buscar usuario..."
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        fontSize: '0.9em',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px'
+                      }}
+                      aria-label="Buscar usuario en la lista"
+                    />
+                  </div>
+
+                  {/* Lista de usuarios con checkboxes */}
+                  <div className="user-list-scroll">
+                    {allUsers
+                      .filter(user => 
+                        user.activo && 
+                        (usuarioQuery === '' || 
+                         user.email.toLowerCase().includes(usuarioQuery.toLowerCase()) ||
+                         (user.nombre && user.nombre.toLowerCase().includes(usuarioQuery.toLowerCase())))
+                      )
+                      .map(user => (
+                        <div
+                          key={user.email}
+                          className="user-checkbox-item"
+                          onClick={() => toggleUsuario(user.email)}
+                          style={{
+                            padding: '10px 12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            borderBottom: '1px solid #f0f0f0',
+                            transition: 'background-color 0.15s ease',
+                            backgroundColor: usuarios.includes(user.email) ? '#f0f8ff' : 'transparent'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = usuarios.includes(user.email) ? '#e6f3ff' : '#f9fafc';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = usuarios.includes(user.email) ? '#f0f8ff' : 'transparent';
+                          }}
+                        >
+                          {/* Checkbox visual */}
+                          <div style={{
+                            width: '18px',
+                            height: '18px',
+                            border: `2px solid ${usuarios.includes(user.email) ? '#002855' : '#ccc'}`,
+                            borderRadius: '3px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: usuarios.includes(user.email) ? '#002855' : 'white',
+                            flexShrink: 0,
+                            transition: 'all 0.2s ease'
+                          }}>
+                            {usuarios.includes(user.email) && (
+                              <span style={{ color: 'white', fontSize: '0.8em', fontWeight: 'bold' }}>✓</span>
+                            )}
+                          </div>
+
+                          {/* Información del usuario */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ 
+                              fontWeight: usuarios.includes(user.email) ? '600' : '400',
+                              color: usuarios.includes(user.email) ? '#002855' : '#333',
+                              fontSize: '0.95em',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {user.nombre}
+                            </div>
+                            <div style={{ 
+                              fontSize: '0.85em', 
+                              color: '#666',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {user.email}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    }
+
+                    {/* Mensaje cuando no hay resultados */}
+                    {allUsers.filter(user => 
+                      user.activo && 
+                      (usuarioQuery === '' || 
+                       user.email.toLowerCase().includes(usuarioQuery.toLowerCase()) ||
+                       (user.nombre && user.nombre.toLowerCase().includes(usuarioQuery.toLowerCase())))
+                    ).length === 0 && (
+                      <div style={{
+                        padding: '20px',
+                        textAlign: 'center',
+                        color: '#666',
+                        fontSize: '0.9em'
+                      }}>
+                        {usuarioQuery ? 'No se encontraron usuarios' : 'No hay usuarios activos disponibles'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botón para cerrar */}
+                  <div style={{ 
+                    padding: '8px 12px', 
+                    borderTop: '1px solid #e0e0e0',
+                    display: 'flex',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        setUsuarioQuery('');
+                      }}
+                      style={{
+                        padding: '6px 16px',
+                        background: '#002855',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.85em',
+                        fontWeight: '500',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#001f40';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#002855';
+                      }}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Chips de usuarios seleccionados */}
             {usuarios.length > 0 && (
-              <div className="chips">
+              <div className="chips" style={{ marginTop: '12px' }}>
                 {usuarios.map(u => (
-                  <span key={u} className="chip">{u} <button onClick={() => removeUsuario(u)}>×</button></span>
+                  <span key={u} className="chip">
+                    {u} 
+                    <button 
+                      onClick={() => removeUsuario(u)}
+                      aria-label={`Eliminar usuario ${u}`}
+                    >
+                      ×
+                    </button>
+                  </span>
                 ))}
               </div>
             )}
@@ -467,48 +663,105 @@ const CreateConversation: React.FC = () => {
 
           {/* Gestión de documentos */}
           <div className="documents-section">
-            <h3>Documentos de la conversación</h3>
-            <label className="field-label">
-              <span>Agregar archivos</span>
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                multiple 
-                accept={acceptAttr} 
-                onChange={e => onPickArchivos(e.target.files)}
-              />
-            </label>
+            <div className="documents-section-header">
+              <h3 className="documents-section-title">
+                Documentos de la conversación
+              </h3>
+              <span className="documents-section-count">
+                {archivos.length} archivo{archivos.length !== 1 ? 's' : ''} seleccionado{archivos.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Input oculto para archivos */}
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              multiple 
+              accept={acceptAttr} 
+              onChange={e => onPickArchivos(e.target.files)}
+              style={{ display: 'none' }}
+              aria-label="Seleccionar archivos para la conversación"
+            />
+
+            {/* Botón personalizado para agregar archivos */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="file-upload-button"
+            >
+              <span className="file-upload-icon">📎</span>
+              <span>Seleccionar archivos</span>
+              <span className="file-upload-hint">
+                PDF, Word, Excel, PowerPoint
+              </span>
+            </button>
             
+            {/* Lista de archivos seleccionados */}
             {archivos.length > 0 && (
               <div className="files-list">
                 {archivos.map(a => (
                   <div key={a.id} className="file-row">
-                    <div>
-                      <strong>{a.name}</strong> <span style={{ color: '#667' }}>({Math.ceil(a.size / 1024)} KB)</span>
+                    <div className="file-info">
+                      <span className="file-icon">
+                        {a.type.includes('pdf') ? '📕' : 
+                         a.type.includes('word') || a.name.endsWith('.doc') || a.name.endsWith('.docx') ? '📘' :
+                         a.type.includes('sheet') || a.name.endsWith('.xls') || a.name.endsWith('.xlsx') ? '📗' :
+                         a.type.includes('presentation') || a.name.endsWith('.ppt') || a.name.endsWith('.pptx') ? '📙' :
+                         '📄'}
+                      </span>
+                      <div className="file-details">
+                        <div className="file-name">{a.name}</div>
+                        <div className="file-size">{Math.ceil(a.size / 1024)} KB</div>
+                      </div>
                     </div>
-                    <button className="small" onClick={() => removeArchivo(a.id)}>Eliminar</button>
+                    <button 
+                      className="file-delete-btn" 
+                      onClick={() => removeArchivo(a.id)}
+                      aria-label={`Eliminar archivo ${a.name}`}
+                    >
+                      Eliminar
+                    </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
+          {/* Botones de acción mejorados */}
           <div className="create-actions">
-            <button className="small" onClick={() => { 
-              setTitulo(''); 
-              setDescripcion(''); 
-              setUsuarios([]); 
-              setArchivos([]); 
-              setUsuarioQuery(''); 
-            }}>
-              Cancelar
+            <button 
+              type="button"
+              className="btn-cancel"
+              onClick={() => { 
+                setTitulo(''); 
+                setDescripcion(''); 
+                setUsuarios([]); 
+                setArchivos([]); 
+                setUsuarioQuery('');
+                setShowUserDropdown(false);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+              }}
+              aria-label="Cancelar creación de conversación"
+            >
+              ✕ Cancelar
             </button>
             <button 
-              className="small primary" 
+              type="button"
+              className="btn-create"
               onClick={crearConversacion} 
               disabled={!isValidConv || creating}
+              aria-label="Crear nueva conversación"
             >
-              {creating ? 'Creando...' : 'Crear'}
+              {creating ? (
+                'Creando...'
+              ) : (
+                <>
+                  <span style={{ fontSize: '1.1em' }}>✓</span>
+                  Crear Conversación
+                </>
+              )}
             </button>
           </div>
         </div>
