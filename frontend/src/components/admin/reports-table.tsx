@@ -78,18 +78,26 @@ const ReportsTable: React.FC = () => {
     <div className="admin-wrapper">
       <div className="admin-card">
         <div className="admin-card-header">
-          <h2>Reportes</h2>
+          <h2>Gestión de Reportes</h2>
           <div className="actions">
             <input
               className="search"
-              placeholder="Buscar por docente, correo, tipo o comentario"
+              placeholder="🔍 Buscar por docente, correo, tipo o comentario..."
               value={query}
               onChange={e => setQuery(e.target.value)}
+              aria-label="Buscar reportes"
+              title="Busque reportes por docente, correo, tipo o comentario"
             />
-            <select className="search" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
-              <option value="todos">Todos</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="resuelto">Resuelto</option>
+            <select 
+              className="search" 
+              value={statusFilter} 
+              onChange={e => setStatusFilter(e.target.value as any)}
+              aria-label="Filtrar por estado"
+              title="Filtrar reportes según su estado"
+            >
+              <option value="todos">📋 Todos los estados</option>
+              <option value="pendiente">⏳ Pendiente</option>
+              <option value="resuelto">✓ Resuelto</option>
             </select>
           </div>
         </div>
@@ -126,15 +134,30 @@ const ReportsTable: React.FC = () => {
                     <span className={r.estado === 'resuelto' ? 'badge success' : 'badge'}>{r.estado === 'resuelto' ? 'Resuelto' : 'Pendiente'}</span>
                   </td>
                   <td className="row-actions">
-                    <button className="small" title="Editar" onClick={() => startEdit(r.id)}>...</button>
+                    <button 
+                      className="small" 
+                      onClick={() => startEdit(r.id)}
+                      aria-label="Ver detalles del reporte"
+                      title="Ver y editar detalles completos del reporte"
+                    >
+                      📝 Ver detalles
+                    </button>
                   </td>
                 </tr>
                 );
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', color: '#666' }}>
-                    No se encontraron reportes
+                  <td colSpan={8}>
+                    <div className="empty-state">
+                      <div className="empty-state-icon">📊</div>
+                      <div className="empty-state-title">No se encontraron reportes</div>
+                      <div className="empty-state-text">
+                        {query || statusFilter !== 'todos' 
+                          ? 'No hay reportes que coincidan con sus filtros. Intente ajustar los criterios de búsqueda.' 
+                          : 'Aún no hay reportes en el sistema. Los reportes aparecerán aquí cuando los docentes los envíen.'}
+                      </div>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -143,9 +166,30 @@ const ReportsTable: React.FC = () => {
         </div>
         {filtered.length > 0 && (
           <div className="pagination-bar">
-            <button className="small" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Anterior</button>
-            <span className="page-indicator">Página {page} de {totalPages}</span>
-            <button className="small" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Siguiente</button>
+            <div className="pagination-info">
+              <span>Mostrando {((page - 1) * PAGE_SIZE) + 1} - {Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} reportes</span>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button 
+                className="small" 
+                onClick={() => setPage(p => Math.max(1, p - 1))} 
+                disabled={page === 1}
+                aria-label="Página anterior"
+                title="Ir a la página anterior"
+              >
+                ← Anterior
+              </button>
+              <span className="page-indicator">Página {page} de {totalPages}</span>
+              <button 
+                className="small" 
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+                disabled={page === totalPages}
+                aria-label="Página siguiente"
+                title="Ir a la página siguiente"
+              >
+                Siguiente →
+              </button>
+            </div>
           </div>
         )}
       </div>
