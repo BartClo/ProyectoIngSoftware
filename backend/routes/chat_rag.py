@@ -11,6 +11,7 @@ from models import (
     CustomChatbot, 
     ChatbotAccess, 
     Conversation as ConversationModel,
+    ConversationParticipant as ConversationParticipantModel,
     Message as MessageModel,
     AccessLevel
 )
@@ -122,7 +123,7 @@ async def send_message_with_rag(
                 )
                 
                 # Filtrar resultados por score mínimo
-                min_score = 0.7  # Ajustar según necesidades
+                min_score = 0.45  # Ajustado para obtener más resultados relevantes
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
@@ -242,10 +243,14 @@ async def send_message_to_conversation(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     
-    # Verificar acceso (propietario o participante)
-    # Por simplicidad, por ahora solo verificar propietario
+    # Verificar acceso: propietario o participante
     if conversation.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="No tiene acceso a esta conversación")
+        participant = db.query(ConversationParticipantModel).filter(
+            ConversationParticipantModel.conversation_id == conversation.id,
+            ConversationParticipantModel.user_id == current_user.id
+        ).first()
+        if not participant:
+            raise HTTPException(status_code=403, detail="No tiene acceso a esta conversación")
     
     user_text = payload.text.strip()
     if not user_text:
@@ -283,7 +288,7 @@ async def send_message_to_conversation(
                 )
                 
                 # Filtrar por score mínimo
-                min_score = 0.7
+                min_score = 0.45  # Ajustado para obtener más resultados relevantes
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
@@ -356,9 +361,26 @@ async def list_user_conversations(
 ):
     """Listar conversaciones del usuario con información del chatbot"""
     
-    conversations = db.query(ConversationModel).filter(
+    # Conversaciones del usuario como propietario
+    owned_conversations = db.query(ConversationModel).filter(
         ConversationModel.user_id == current_user.id
-    ).order_by(ConversationModel.updated_at.desc()).all()
+    ).all()
+
+    # Conversaciones donde es participante
+    participant_links = db.query(ConversationParticipantModel).filter(
+        ConversationParticipantModel.user_id == current_user.id
+    ).all()
+    participant_conv_ids = [p.conversation_id for p in participant_links]
+    participant_conversations = (
+        db.query(ConversationModel)
+        .filter(ConversationModel.id.in_(participant_conv_ids))
+        .all()
+        if participant_conv_ids else []
+    )
+
+    # Combinar y ordenar por updated_at desc, sin duplicados
+    conv_map = {c.id: c for c in owned_conversations + participant_conversations}
+    conversations = sorted(conv_map.values(), key=lambda c: c.updated_at, reverse=True)
     
     result = []
     for conv in conversations:
@@ -391,12 +413,20 @@ async def get_conversation_messages(
     """Obtener mensajes de una conversación"""
     
     conversation = db.query(ConversationModel).filter(
-        ConversationModel.id == conversation_id,
-        ConversationModel.user_id == current_user.id
+        ConversationModel.id == conversation_id
     ).first()
-    
+
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
+
+    # Verificar acceso: propietario o participante
+    if conversation.user_id != current_user.id:
+        participant = db.query(ConversationParticipantModel).filter(
+            ConversationParticipantModel.conversation_id == conversation.id,
+            ConversationParticipantModel.user_id == current_user.id
+        ).first()
+        if not participant:
+            raise HTTPException(status_code=403, detail="No tiene acceso a esta conversación")
     
     messages = db.query(MessageModel).filter(
         MessageModel.conversation_id == conversation_id
