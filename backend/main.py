@@ -242,6 +242,32 @@ def admin_create_user(
         raise HTTPException(status_code=400, detail="Email ya registrado")
     return {"id": user.id, "email": user.email, "nombre": user.nombre}
 
+@app.patch("/admin/users/{user_id}/password", status_code=200)
+def admin_update_user_password(
+    user_id: int,
+    payload: dict,
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    """Actualizar contraseña de usuario desde panel administrativo"""
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail='Usuario no encontrado')
+    
+    new_password = payload.get('password')
+    if not new_password:
+        raise HTTPException(status_code=400, detail='Contraseña requerida')
+    
+    # Validar seguridad de contraseña
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail='La contraseña debe tener al menos 8 caracteres')
+    
+    # Hash con bcrypt (automáticamente incluye salt)
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+    
+    return {"message": "Contraseña actualizada exitosamente", "user_id": user.id}
+
 @app.delete('/admin/users/{user_id}/', status_code=204)
 def admin_delete_user(
     user_id: int, 
