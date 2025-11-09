@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './users-table.css';
 import { useAdminData } from './admin-data-context';
-import { createAdminUser } from '../../lib/api';
+import { createAdminUser, updateUserPassword } from '../../lib/api';
 
 type Role = 'admin' | 'docente';
 
@@ -13,18 +13,79 @@ export interface UserRow {
   activo: boolean;
 }
 
+interface PasswordChangeState {
+  userId: string;
+  password: string;
+  confirmPassword: string;
+  showPassword: boolean;
+  validationErrors: string[];
+}
+
 const UsersTable: React.FC = () => {
   const { users: usersCtx, setUsers: setUsersCtx, refreshUsers } = useAdminData();
   const [users, setUsers] = useState<UserRow[]>(usersCtx);
+  
   // Mantener el estado local sincronizado con el contexto
   React.useEffect(() => {
     setUsers(usersCtx);
   }, [usersCtx]);
+  
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<UserRow> & { password?: string }>({});
-  // Para manejar creación
   const [newRowId, setNewRowId] = useState<string | null>(null);
+  
+  // Estado para gestión de contraseñas (Nielsen H2: Visibilidad del estado del sistema)
+  const [passwordMode, setPasswordMode] = useState<string | null>(null);
+  const [passwordData, setPasswordData] = useState<PasswordChangeState>({
+    userId: '',
+    password: '',
+    confirmPassword: '',
+    showPassword: false,
+    validationErrors: []
+  });
+
+  // Validación de contraseña en tiempo real (Nielsen H5: Prevención de errores)
+  const validatePassword = (pwd: string, confirmPwd: string): string[] => {
+    const errors: string[] = [];
+    
+    if (pwd.length < 8) {
+      errors.push('Mínimo 8 caracteres');
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      errors.push('Requiere mayúscula');
+    }
+    if (!/[a-z]/.test(pwd)) {
+      errors.push('Requiere minúscula');
+    }
+    if (!/[0-9]/.test(pwd)) {
+      errors.push('Requiere número');
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) {
+      errors.push('Requiere carácter especial');
+    }
+    if (confirmPwd && pwd !== confirmPwd) {
+      errors.push('Las contraseñas no coinciden');
+    }
+    
+    return errors;
+  };
+
+  // Nielsen H1: Calculadora de fortaleza de contraseña (Visibilidad del estado del sistema)
+  const getPasswordStrength = (pwd: string): { level: 'weak' | 'medium' | 'strong', label: string } => {
+    let score = 0;
+    
+    if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[a-z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) score++;
+    
+    if (score >= 5) return { level: 'strong', label: 'Fuerte' };
+    if (score >= 3) return { level: 'medium', label: 'Media' };
+    return { level: 'weak', label: 'Débil' };
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -71,27 +132,89 @@ const UsersTable: React.FC = () => {
   const saveEdit = () => {
     if (!editingId) return;
     const isNew = newRowId && editingId === newRowId;
+    
     // Si es nuevo, llamar a backend
     if (isNew) {
-      const payload = { email: draft.email as string, password: (draft.password || 'changeme123'), nombre: draft.nombre as string };
+      const payload = { 
+        email: draft.email as string, 
+        password: (draft.password || 'ChangeMe123!'), 
+        nombre: draft.nombre as string 
+      };
+      
+      // Validar contraseña antes de enviar
+      const errors = validatePassword(payload.password, payload.password);
+      if (errors.length > 0) {
+        alert('Contraseña no cumple requisitos de seguridad:\n' + errors.join('\n'));
+        return;
+      }
+      
       createAdminUser(payload).then(() => {
         refreshUsers().then(() => {
-          showToast('Usuario creado');
+          showToast('Usuario creado exitosamente');
           setNewRowId(null);
           cancelEdit('save');
         });
       }).catch((e) => {
         console.error('create user', e);
-        alert('Error creando usuario');
+        alert('Error creando usuario: ' + (e.body?.detail || 'Error desconocido'));
       });
       return;
     }
+    
     const updated = users.map(u => (u.id === editingId ? { ...(u as UserRow), ...(draft as UserRow), id: u.id } : u));
     setUsers(updated);
     setUsersCtx(updated);
-    // Notificación en-app
     showToast('Usuario actualizado correctamente');
     cancelEdit('save');
+  };
+
+  // Nueva función para cambiar contraseña (Nielsen H3: Control y libertad del usuario)
+  const initiatePasswordChange = (userId: string) => {
+    setPasswordMode(userId);
+    setPasswordData({
+      userId,
+      password: '',
+      confirmPassword: '',
+      showPassword: false,
+      validationErrors: []
+    });
+  };
+
+  const cancelPasswordChange = () => {
+    setPasswordMode(null);
+    setPasswordData({
+      userId: '',
+      password: '',
+      confirmPassword: '',
+      showPassword: false,
+      validationErrors: []
+    });
+  };
+
+  const savePasswordChange = async () => {
+    const { userId, password, confirmPassword } = passwordData;
+    
+    // Validar
+    const errors = validatePassword(password, confirmPassword);
+    if (errors.length > 0) {
+      setPasswordData(prev => ({ ...prev, validationErrors: errors }));
+      return;
+    }
+    
+    try {
+      const numericId = Number(userId);
+      if (Number.isNaN(numericId)) {
+        alert('Error: ID de usuario inválido');
+        return;
+      }
+      
+      await updateUserPassword(numericId, password);
+      showToast('Contraseña actualizada de forma segura');
+      cancelPasswordChange();
+    } catch (e: any) {
+      console.error('update password', e);
+      alert('Error actualizando contraseña: ' + (e.body?.detail || 'Error desconocido'));
+    }
   };
 
   const showToast = (msg: string) => {
@@ -193,8 +316,8 @@ const UsersTable: React.FC = () => {
                 <th>Nombre</th>
                 <th>Correo</th>
                 <th>Rol</th>
-                <th>{newRowId ? 'Contraseña' : 'Estado'}</th>
-                <th style={{ width: 150 }}>Acciones</th>
+                <th>Contraseña</th>
+                <th style={{ width: 180 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -206,6 +329,7 @@ const UsersTable: React.FC = () => {
                         className="cell-input"
                         value={String(draft.nombre ?? '')}
                         onChange={e => setDraft(d => ({ ...d, nombre: e.target.value }))}
+                        aria-label="Nombre del usuario"
                       />
                     ) : (
                       u.nombre
@@ -215,8 +339,10 @@ const UsersTable: React.FC = () => {
                     {editingId === u.id ? (
                       <input
                         className="cell-input"
+                        type="email"
                         value={String(draft.email ?? '')}
                         onChange={e => setDraft(d => ({ ...d, email: e.target.value }))}
+                        aria-label="Correo electrónico del usuario"
                       />
                     ) : (
                       u.email
@@ -228,6 +354,7 @@ const UsersTable: React.FC = () => {
                         className="cell-input"
                         value={String(draft.rol ?? 'docente')}
                         onChange={e => setDraft(d => ({ ...d, rol: e.target.value as Role }))}
+                        aria-label="Rol del usuario"
                       >
                         <option value="admin">Administrador</option>
                         <option value="docente">Docente</option>
@@ -237,38 +364,182 @@ const UsersTable: React.FC = () => {
                     )}
                   </td>
                   <td>
-                    {editingId === u.id ? (
-                      // Si es la fila nueva, mostrar input de contraseña en lugar del selector de estado
-                      (newRowId && editingId === newRowId) ? (
-                        <input
-                          className="cell-input"
-                          type="password"
-                          placeholder="Contraseña"
-                          value={String(draft.password ?? '')}
-                          onChange={e => setDraft(d => ({ ...d, password: e.target.value }))}
-                        />
-                      ) : (
-                        <select
-                          className="cell-input"
-                          value={String(draft.activo ?? true)}
-                          onChange={e => setDraft(d => ({ ...d, activo: e.target.value === 'true' }))}
-                        >
-                          <option value="true">Activo</option>
-                          <option value="false">Inactivo</option>
-                        </select>
-                      )
+                    {editingId === u.id && newRowId === u.id ? (
+                      // Usuario nuevo: input de contraseña con validación completa (Nielsen H1 & H5)
+                      <div className="password-change-container">
+                        <div className="password-inputs">
+                          <div className="password-field-wrapper">
+                            <input
+                              className={`cell-input ${
+                                draft.password && (draft.password as string).length > 0
+                                  ? (passwordData.validationErrors.length === 0 ? 'valid' : 'invalid')
+                                  : ''
+                              }`}
+                              type={passwordData.showPassword ? 'text' : 'password'}
+                              placeholder="Contraseña inicial (min. 8 caracteres)"
+                              value={String(draft.password ?? '')}
+                              onChange={e => {
+                                const pwd = e.target.value;
+                                setDraft(d => ({ ...d, password: pwd }));
+                                const errors = validatePassword(pwd, pwd);
+                                setPasswordData(prev => ({ ...prev, validationErrors: errors, password: pwd, confirmPassword: pwd }));
+                              }}
+                              aria-label="Contraseña del nuevo usuario"
+                              aria-describedby="new-password-strength"
+                            />
+                          </div>
+                          <button
+                            className="toggle-visibility-btn"
+                            onClick={() => setPasswordData(prev => ({ ...prev, showPassword: !prev.showPassword }))}
+                            aria-label={passwordData.showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                            type="button"
+                          >
+                            {passwordData.showPassword ? 'Ocultar' : 'Mostrar'}
+                          </button>
+                        </div>
+                        
+                        {/* Nielsen H1: Indicador de fortaleza para nuevo usuario */}
+                        {draft.password && (draft.password as string).length > 0 && (
+                          <div className="password-strength-indicator" id="new-password-strength" role="status" aria-live="polite">
+                            <div className="strength-bar">
+                              <div className={`strength-fill ${getPasswordStrength(draft.password as string).level}`}></div>
+                            </div>
+                            <span className={`strength-label ${getPasswordStrength(draft.password as string).level}`}>
+                              {getPasswordStrength(draft.password as string).label}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Nielsen H9: Errores de validación descriptivos */}
+                        {passwordData.validationErrors.length > 0 && (
+                          <div className="validation-errors-list" role="alert">
+                            <p>Requisitos de seguridad:</p>
+                            <ul>
+                              {passwordData.validationErrors.map((err, idx) => (
+                                <li key={idx}>{err}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : passwordMode === u.id ? (
+                      // Modo cambio de contraseña (Nielsen H1: Visibilidad del estado del sistema)
+                      <div className="password-change-container">
+                        <div className="password-inputs">
+                          <div className="password-field-wrapper">
+                            <input
+                              type={passwordData.showPassword ? 'text' : 'password'}
+                              placeholder="Nueva contraseña"
+                              value={passwordData.password}
+                              onChange={e => {
+                                const pwd = e.target.value;
+                                setPasswordData(prev => ({
+                                  ...prev,
+                                  password: pwd,
+                                  validationErrors: validatePassword(pwd, prev.confirmPassword)
+                                }));
+                              }}
+                              className={`cell-input ${
+                                passwordData.password.length > 0 
+                                  ? (passwordData.validationErrors.length === 0 ? 'valid' : 'invalid')
+                                  : ''
+                              }`}
+                              aria-label="Nueva contraseña"
+                              aria-describedby="password-strength"
+                            />
+                          </div>
+                          <div className="password-field-wrapper">
+                            <input
+                              type={passwordData.showPassword ? 'text' : 'password'}
+                              placeholder="Confirmar contraseña"
+                              value={passwordData.confirmPassword}
+                              onChange={e => {
+                                const confPwd = e.target.value;
+                                setPasswordData(prev => ({
+                                  ...prev,
+                                  confirmPassword: confPwd,
+                                  validationErrors: validatePassword(prev.password, confPwd)
+                                }));
+                              }}
+                              className={`cell-input ${
+                                passwordData.confirmPassword.length > 0 
+                                  ? (passwordData.password === passwordData.confirmPassword ? 'valid' : 'invalid')
+                                  : ''
+                              }`}
+                              aria-label="Confirmar contraseña"
+                            />
+                          </div>
+                          <button
+                            className="toggle-visibility-btn"
+                            onClick={() => setPasswordData(prev => ({ ...prev, showPassword: !prev.showPassword }))}
+                            aria-label={passwordData.showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                            type="button"
+                          >
+                            {passwordData.showPassword ? 'Ocultar' : 'Mostrar'}
+                          </button>
+                        </div>
+                        
+                        {/* Nielsen H1: Indicador de fortaleza de contraseña */}
+                        {passwordData.password.length > 0 && (
+                          <div className="password-strength-indicator" id="password-strength" role="status" aria-live="polite">
+                            <div className="strength-bar">
+                              <div className={`strength-fill ${getPasswordStrength(passwordData.password).level}`}></div>
+                            </div>
+                            <span className={`strength-label ${getPasswordStrength(passwordData.password).level}`}>
+                              {getPasswordStrength(passwordData.password).label}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Nielsen H9: Mensajes de error claros y descriptivos */}
+                        {passwordData.validationErrors.length > 0 && (
+                          <div className="validation-errors-list" role="alert">
+                            <p>Requisitos de seguridad:</p>
+                            <ul>
+                              {passwordData.validationErrors.map((err, idx) => (
+                                <li key={idx}>{err}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <span className={u.activo ? 'badge success' : 'badge'}>
-                        {u.activo ? 'Activo' : 'Inactivo'}
-                      </span>
+                      <span className="password-placeholder">•••••••• (Cifrada)</span>
                     )}
                   </td>
                   <td className="row-actions">
-                    {editingId === u.id ? (
+                    {passwordMode === u.id ? (
+                      // Nielsen H3: Control y libertad del usuario (botones Guardar/Cancelar)
+                      <>
+                        <button 
+                          className="small primary" 
+                          onClick={savePasswordChange}
+                          disabled={
+                            passwordData.validationErrors.length > 0 || 
+                            passwordData.password.length === 0 ||
+                            passwordData.confirmPassword.length === 0
+                          }
+                          aria-label="Guardar nueva contraseña"
+                        >
+                          Guardar
+                        </button>
+                        <button 
+                          className="small" 
+                          onClick={cancelPasswordChange}
+                          aria-label="Cancelar cambio de contraseña"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : editingId === u.id ? (
+                      // Nielsen H5: Prevención de errores en edición de usuario
                       <>
                         <button 
                           className="small primary" 
                           onClick={saveEdit}
+                          disabled={
+                            newRowId === u.id && passwordData.validationErrors.length > 0
+                          }
                           aria-label="Guardar cambios"
                         >
                           Guardar
@@ -284,11 +555,18 @@ const UsersTable: React.FC = () => {
                     ) : (
                       <>
                         <button 
-                          className="small" 
+                          className="small btn-edit" 
                           onClick={() => startEdit(u.id)}
                           aria-label={`Editar usuario ${u.nombre}`}
                         >
                           Editar
+                        </button>
+                        <button 
+                          className="small btn-password" 
+                          onClick={() => initiatePasswordChange(u.id)}
+                          aria-label={`Cambiar contraseña de ${u.nombre}`}
+                        >
+                          Contraseña
                         </button>
                         <button 
                           className="small danger" 
