@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './chat-interface.css';
 import ChatSidebar from '../chat-sidebar/chat-sidebar';
 import ChatNoConversation from '../chat-no-conversation/chat-no-conversation';
-import { listConversations, sendMessage, deleteConversation, createConversation, listUserChatbots } from '../../../lib/api';
+import { listConversations, sendMessage, createConversation, listUserChatbots } from '../../../lib/api';
 import type { ChatbotInfo, ChatResponseDTO } from '../../../lib/api';
 
 interface ChatMessage {
@@ -169,40 +169,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
     }
   };
 
-  // Eliminar conversación
-  const handleDeleteConversation = async (conversationId: string) => {
-    try {
-      await deleteConversation(Number(conversationId));
-      
-      setConversations(prev => prev.filter(c => c.id !== conversationId));
-      setMessagesByConv(prev => {
-        const newMessages = { ...prev };
-        delete newMessages[conversationId];
-        return newMessages;
-      });
-
-      if (activeConversationId === conversationId) {
-        const remaining = conversations.filter(c => c.id !== conversationId);
-        setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
-      }
-    } catch (error) {
-      console.error('Error deleting conversation:', error);
-      alert('No se pudo eliminar la conversación');
-    }
-  };
-
-  // Renombrar conversación
-  const handleRenameConversation = async (conversationId: string, newTitle: string) => {
-    try {
-      // TODO: Implementar endpoint de rename en el backend
-      setConversations(prev => prev.map(c => 
-        c.id === conversationId ? { ...c, title: newTitle } : c
-      ));
-    } catch (error) {
-      console.error('Error renaming conversation:', error);
-      alert('No se pudo renombrar la conversación');
-    }
-  };
+  // FUNCIONES DE ELIMINAR Y RENOMBRAR REMOVIDAS
+  // Los usuarios/docentes NO pueden eliminar ni renombrar conversaciones
+  // Solo los administradores tienen estos permisos
 
   // Enviar mensaje
   const handleSendMessage = async () => {
@@ -290,14 +259,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
 
   return (
     <div className="chat-interface">
-      {/* Sidebar */}
+      {/* Sidebar - Vista de USUARIO (sin funciones de editar/eliminar) */}
       <ChatSidebar
         conversations={sortedConversations}
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        onRenameConversation={handleRenameConversation}
+        isAdminView={false} // Usuario/Docente NO puede eliminar ni renombrar
+        // onDeleteConversation y onRenameConversation NO se pasan
       />
 
       {/* Área principal */}
@@ -354,7 +323,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
                         </div>
                       )}
                       <div className="message-timestamp">
-                        {msg.timestamp.toLocaleTimeString()}
+                        {msg.timestamp.toLocaleTimeString('es-CL', { 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          hour12: false 
+                        })}
                       </div>
                     </div>
                   </div>
@@ -384,7 +357,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
                     disabled={!inputValue.trim() || sending}
                     className="send-button"
                   >
-                    {sending ? '⏳' : '📤'}
+                    {sending ? 'Procesando...' : 'Enviar'}
                   </button>
                 </div>
                 {selectedChatbot && (

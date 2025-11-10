@@ -8,6 +8,14 @@
   background-color: transparent;
   border: none !important;
   box-shadow: none !important;
+  min-height: 0; /* Importante para flexbox */
+  /* Optimización de estabilidad */
+  will-change: contents; /* Optimizar cambios de contenido */
+}
+
+/* Asegurar que el sidebar y main estén alineados correctamente */
+.chat-interface > * {
+  flex-shrink: 0; /* Prevenir encogimiento no deseado */
 }
 
 .chat-main {
@@ -17,16 +25,33 @@
   height: 100%;
   overflow: hidden;
   min-width: 0; /* Importante para flexbox */
+  background-color: #ffffff; /* Fondo blanco para contraste */
+  border-radius: 0; /* Sin bordes redondeados para mejor alineación */
 }
 
 .chat-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 20px;
+  border-bottom: 2px solid #e8ebf2; /* Línea divisoria consistente con sidebar */
   background-color: #ffffff;
   display: flex;
   flex-direction: column;
   gap: 12px;
   flex-shrink: 0; /* No permitir que se encoja */
+  position: relative;
+  z-index: 10;
+  /* Prevenir layout shift */
+  contain: layout style; /* Aislamiento de layout */
+}
+
+/* Separador visual superior para consistencia con sidebar */
+.chat-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(180deg, rgba(0, 40, 85, 0.05) 0%, transparent 100%);
 }
 
 .chatbot-selector {
@@ -96,15 +121,20 @@
   height: 100%;
   overflow: hidden;
   min-height: 0; /* Importante para flexbox */
+  /* Prevenir layout shift */
+  contain: layout style paint; /* Máximo aislamiento */
 }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* Prevenir scroll horizontal */
   padding: 20px;
   background-color: #ffffff; /* Fondo más claro */
   background-image: linear-gradient(to bottom, rgba(240, 245, 255, 0.6), rgba(240, 245, 255, 0.3)); /* Gradiente sutil */
   width: 100%; /* Asegurar que ocupa todo el ancho */
+  /* Prevenir layout shift durante scroll */
+  scrollbar-gutter: stable; /* Reservar espacio para scrollbar */
 }
 
 .message {
@@ -130,11 +160,12 @@
   border-radius: 12px;
   position: relative;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  transition: box-shadow 0.2s ease; /* Solo transición de sombra */
+  will-change: box-shadow; /* Optimización de rendimiento */
 }
 
 .message-content:hover {
-  transform: translateY(-1px);
+  /* ELIMINADO transform para evitar layout shift */
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
 }
 
@@ -184,12 +215,16 @@
   background-color: #fff;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
   flex-shrink: 0; /* No permitir que se encoja */
+  /* Prevenir layout shift */
+  contain: layout style; /* Aislamiento de layout */
+  position: relative; /* Contexto de posicionamiento */
 }
 
 .input-wrapper {
   display: flex;
   gap: 12px;
-  align-items: flex-end;
+  align-items: flex-end; /* Alinear al final para botones de altura automática */
+  width: 100%; /* Asegurar ancho completo */
 }
 
 .input-wrapper textarea {
@@ -198,7 +233,7 @@
   border-radius: 8px;
   padding: 14px 18px;
   font-size: 14px;
-  resize: none;
+  resize: vertical; /* Permitir resize vertical */
   min-height: 44px;
   max-height: 120px;
   outline: none;
@@ -206,6 +241,7 @@
   background-color: #f9fafc;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
   font-family: inherit;
+  line-height: 1.4; /* Mejor espaciado de líneas */
 }
 
 .input-wrapper textarea:focus {
@@ -215,9 +251,10 @@
 }
 
 .send-button {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  min-width: 100px; /* Ancho mínimo para texto */
+  height: 44px; /* Altura consistente */
+  padding: 0 20px; /* Padding horizontal para el texto */
+  border-radius: 8px; /* Consistente con textarea */
   border: none;
   background-color: #003b80;
   color: white;
@@ -227,7 +264,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap; /* Evitar que el texto se rompa */
+  flex-shrink: 0; /* No permitir que se encoja */
 }
 
 .send-button:disabled {
@@ -239,7 +279,7 @@
 
 .send-button:hover:not(:disabled) {
   background-color: #00234d;
-  transform: translateY(-2px);
+  transform: none; /* Eliminar translateY para estabilidad */
   box-shadow: 0 4px 8px rgba(0, 59, 128, 0.3);
 }
 
