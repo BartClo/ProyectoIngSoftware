@@ -129,16 +129,17 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: all 0.2s;
+  transition: background-color 0.2s; /* Solo transición de color */
 }
 
 .header-button:hover {
   background-color: #f0f0f0;
-  transform: scale(1.05);
+  /* ELIMINADO transform para evitar layout shift */
 }
 
 .header-button:active {
-  transform: scale(0.95);
+  /* ELIMINADO transform para evitar layout shift */
+  background-color: #e0e0e0;
 }
 
 .header-button .icon {
