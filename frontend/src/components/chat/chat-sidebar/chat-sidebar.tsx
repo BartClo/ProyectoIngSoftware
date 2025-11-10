@@ -15,9 +15,10 @@ interface ChatSidebarProps {
   conversations: ChatConversation[];
   activeConversationId: string | null;
   onSelectConversation: (id: string) => void;
-  onDeleteConversation: (id: string) => void;
-  onRenameConversation: (id: string, newTitle: string) => void;
+  onDeleteConversation?: (id: string) => void; // OPCIONAL para admin
+  onRenameConversation?: (id: string, newTitle: string) => void; // OPCIONAL para admin
   onNewConversation?: () => void;
+  isAdminView?: boolean; // Flag para determinar si mostrar funciones admin
 }
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -26,7 +27,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onSelectConversation,
   onDeleteConversation,
   onRenameConversation,
-  onNewConversation
+  onNewConversation,
+  isAdminView = false // Por defecto es vista de usuario (sin edición/eliminación)
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -40,7 +42,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
   
   const handleSaveEdit = () => {
-    if (editingId && editTitle.trim()) {
+    if (editingId && editTitle.trim() && onRenameConversation) {
       onRenameConversation(editingId, editTitle.trim());
       setEditingId(null);
     }
@@ -63,7 +65,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
   
   const handleConfirmDelete = (id: string) => {
-    onDeleteConversation(id);
+    if (onDeleteConversation) {
+      onDeleteConversation(id);
+    }
     setShowConfirmDelete(null);
   };
   
@@ -112,6 +116,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
   
   const handleNewConversationClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevenir comportamiento default que causa scroll
     e.stopPropagation();
     if (onNewConversation) {
       onNewConversation();
@@ -123,7 +128,6 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   return (
     <div className="chat-sidebar">
       <div className="sidebar-header">
-        <h2>Conversaciones</h2>
         <button 
           className="new-conversation-button" 
           onClick={handleNewConversationClick}
@@ -245,26 +249,31 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       >
                         ⋮
                       </button>
-                      <button
-                        className="action-button edit"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartEdit(conversation);
-                        }}
-                        title="Renombrar"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        className="action-button delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleClickDelete(conversation.id);
-                        }}
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
+                      {/* Solo mostrar editar y eliminar en vista admin */}
+                      {isAdminView && onRenameConversation && (
+                        <button
+                          className="action-button edit"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartEdit(conversation);
+                          }}
+                          title="Renombrar"
+                        >
+                          ✎
+                        </button>
+                      )}
+                      {isAdminView && onDeleteConversation && (
+                        <button
+                          className="action-button delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClickDelete(conversation.id);
+                          }}
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
