@@ -4,7 +4,6 @@ import './dashboard-header.css';
 interface DashboardHeaderProps {
   userEmail: string;
   onLogout: () => void;
-  onSettings: () => void;
   onHelp: () => void;
   showAdminActions?: boolean;
   activeAdminView?: 'users' | 'reports' | 'create-conv';
@@ -16,7 +15,6 @@ interface DashboardHeaderProps {
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   userEmail,
   onLogout,
-  onSettings,
   onHelp,
   showAdminActions,
   activeAdminView,
@@ -93,13 +91,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             aria-label="Ayuda"
           >
             <span className="icon">❓</span>
-          </button>
-          <button 
-            className="header-button settings-button"
-            onClick={onSettings} 
-            aria-label="Configuración"
-          >
-            <span className="icon">⚙️</span>
           </button>
           <button 
             className="header-button logout-button"
