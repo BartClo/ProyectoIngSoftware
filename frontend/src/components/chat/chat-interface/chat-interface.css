@@ -13,6 +13,149 @@
   will-change: contents; /* Optimizar cambios de contenido */
 }
 
+/* ===== ALERTAS Y NOTIFICACIONES ===== */
+
+/* Alerta de conversación eliminada */
+.deleted-conversation-alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.alert-content {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(238, 90, 82, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 400px;
+  max-width: 600px;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.alert-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.alert-text {
+  flex: 1;
+}
+
+.alert-text strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.alert-text p {
+  font-size: 14px;
+  margin: 0;
+  opacity: 0.95;
+  line-height: 1.4;
+}
+
+.alert-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, transform 0.2s;
+  flex-shrink: 0;
+}
+
+.alert-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.alert-close:active {
+  transform: scale(0.95);
+}
+
+/* Indicador de validación */
+.validation-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #002855 0%, #001f40 100%);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 40, 85, 0.3);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9998;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.validation-indicator::before {
+  content: '🔄';
+  margin-right: 8px;
+  display: inline-block;
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== FIN ALERTAS Y NOTIFICACIONES ===== */
+
 /* Asegurar que el sidebar y main estén alineados correctamente */
 .chat-interface > * {
   flex-shrink: 0; /* Prevenir encogimiento no deseado */
@@ -121,160 +264,255 @@
   height: 100%;
   overflow: hidden;
   min-height: 0; /* Importante para flexbox */
+  position: relative; /* Contexto para input fijo */
   /* Prevenir layout shift */
   contain: layout style paint; /* Máximo aislamiento */
 }
 
+/* Área principal del chat (sin sidebar en vista móvil) */
+.chat-main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+/* ===== CONTENEDOR DE MENSAJES ===== */
 .messages-container {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden; /* Prevenir scroll horizontal */
   padding: 20px;
-  background-color: #ffffff; /* Fondo más claro */
-  background-image: linear-gradient(to bottom, rgba(240, 245, 255, 0.6), rgba(240, 245, 255, 0.3)); /* Gradiente sutil */
+  padding-bottom: 100px; /* Espacio adicional para evitar que input tape mensajes */
+  background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%); /* Gradiente sutil y moderno */
   width: 100%; /* Asegurar que ocupa todo el ancho */
   /* Prevenir layout shift durante scroll */
   scrollbar-gutter: stable; /* Reservar espacio para scrollbar */
 }
 
+/* ===== MENSAJES - BURBUJAS DIFERENCIADAS ===== */
 .message {
-  margin-bottom: 20px;
-  max-width: 80%;
+  margin-bottom: 16px;
+  max-width: 70%; /* Reducido para mejor legibilidad */
   display: flex;
   position: relative;
   flex-direction: column;
+  animation: messageSlideIn 0.3s ease-out; /* Animación de entrada */
 }
 
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mensajes del Usuario - Alineación DERECHA */
 .message.user {
   align-self: flex-end;
-  margin-left: 20%; /* Empuja los mensajes del usuario hacia la derecha */
+  margin-left: auto; /* Forzar alineación a la derecha */
 }
 
+/* Mensajes de la IA - Alineación IZQUIERDA */
 .message.ai {
   align-self: flex-start;
-  margin-right: 20%; /* Empuja los mensajes del AI hacia la izquierda */
+  margin-right: auto; /* Forzar alineación a la izquierda */
 }
 
+/* ===== BURBUJAS DE CHAT (CHAT BUBBLES) ===== */
 .message-content {
-  padding: 14px 18px;
-  border-radius: 12px;
+  padding: 16px 20px;
+  border-radius: 18px; /* Más redondeado para efecto burbuja */
   position: relative;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s ease; /* Solo transición de sombra */
-  will-change: box-shadow; /* Optimización de rendimiento */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Sombra más prominente */
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  will-change: box-shadow, transform;
+  word-wrap: break-word; /* Prevenir overflow de texto largo */
+  line-height: 1.6;
 }
 
 .message-content:hover {
-  /* ELIMINADO transform para evitar layout shift */
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px); /* Efecto sutil de elevación */
 }
 
+/* BURBUJA USUARIO - Color USS institucional (azul) */
 .message.user .message-content {
-  background-color: #003b80; /* Azul USS más claro */
+  background: linear-gradient(135deg, #003b80 0%, #00509e 100%); /* Gradiente USS */
   color: #ffffff;
-  border-bottom-right-radius: 0;
+  border-bottom-right-radius: 4px; /* "Cola" de burbuja en esquina */
+  box-shadow: 0 2px 8px rgba(0, 59, 128, 0.25); /* Sombra azul */
 }
 
+.message.user .message-content:hover {
+  box-shadow: 0 4px 12px rgba(0, 59, 128, 0.35);
+}
+
+/* BURBUJA IA - Color gris más oscuro para mejor visibilidad */
 .message.ai .message-content {
-  background-color: #f0f5ff; /* Un tono más claro y agradable */
-  color: #1a202c; /* Un color más oscuro para mejor contraste */
-  border-bottom-left-radius: 0;
-  border: 1px solid #e2e8f0;
+  background-color: #e5e7eb; /* Gris más oscuro para mejor contraste visual */
+  color: #111827; /* Texto casi negro para máximo contraste */
+  border-bottom-left-radius: 4px; /* "Cola" de burbuja en esquina opuesta */
+  border: 1px solid #d1d5db; /* Borde gris más visible */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); /* Sombra más marcada */
 }
 
+.message.ai .message-content:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  border-color: #9ca3af; /* Borde más oscuro al hover */
+  background-color: #d1d5db; /* Ligeramente más oscuro al hover */
+}
+
+/* Texto dentro de las burbujas */
 .message-text {
-  line-height: 1.5;
-  margin-bottom: 4px;
+  line-height: 1.6;
+  margin-bottom: 6px;
+  font-size: 15px;
+  white-space: pre-wrap; /* Respetar saltos de línea */
 }
 
+/* Sources y timestamp */
 .message-sources {
   font-size: 12px;
   color: #666;
   background-color: rgba(255, 255, 255, 0.1);
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
   margin-top: 8px;
 }
 
 .message.user .message-sources {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .message-timestamp {
   font-size: 11px;
-  margin-top: 5px;
+  margin-top: 6px;
   text-align: right;
-  opacity: 0.7;
-  color: #666;
+  opacity: 0.85; /* Más visible */
+  font-weight: 500;
 }
 
+/* Timestamp para mensajes de usuario (blanco sobre azul) */
+.message.user .message-timestamp {
+  color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
+}
+
+/* Timestamp para mensajes de IA (oscuro sobre gris) */
+.message.ai .message-timestamp {
+  color: #4b5563; /* Gris oscuro para contraste con fondo gris */
+}
+
+/* ===== BARRA DE ENTRADA FIJA (FIXED INPUT BAR) ===== */
 .input-container {
+  position: fixed; /* ✅ FIJA en la parte inferior */
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 16px 20px;
-  border-top: 1px solid #e0e0e0;
-  background-color: #fff;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
-  flex-shrink: 0; /* No permitir que se encoja */
-  /* Prevenir layout shift */
-  contain: layout style; /* Aislamiento de layout */
-  position: relative; /* Contexto de posicionamiento */
+  border-top: 1px solid #e5e7eb;
+  background: linear-gradient(to bottom, #ffffff 0%, #f9fafb 100%); /* Gradiente sutil */
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08); /* Sombra elevada */
+  z-index: 1000; /* Asegurar que esté sobre otros elementos */
+  backdrop-filter: blur(10px); /* Efecto glassmorphism */
+  flex-shrink: 0;
+  /* Aislamiento de layout para prevenir shifts */
+  contain: layout style;
 }
 
+/* Ajuste para sidebar cuando está visible */
+.chat-main-area .input-container {
+  left: 280px; /* Ancho del sidebar */
+}
+
+/* Ajuste para pantallas sin sidebar */
+.chat-main-area.no-sidebar .input-container {
+  left: 0;
+}
+
+/* ===== INPUT WRAPPER Y TEXTAREA ===== */
 .input-wrapper {
   display: flex;
   gap: 12px;
-  align-items: flex-end; /* Alinear al final para botones de altura automática */
-  width: 100%; /* Asegurar ancho completo */
+  align-items: flex-end;
+  width: 100%;
+  max-width: 1200px; /* Limitar ancho máximo en pantallas grandes */
+  margin: 0 auto; /* Centrar en pantallas grandes */
 }
 
 .input-wrapper textarea {
   flex: 1;
-  border: 1px solid #d1d9e6;
-  border-radius: 8px;
+  border: 2px solid #e5e7eb; /* Borde más grueso */
+  border-radius: 12px; /* Más redondeado */
   padding: 14px 18px;
-  font-size: 14px;
-  resize: vertical; /* Permitir resize vertical */
-  min-height: 44px;
+  font-size: 15px;
+  resize: none; /* ✅ Desactivar resize para mantener altura fija */
+  min-height: 50px;
   max-height: 120px;
   outline: none;
-  transition: all 0.2s;
-  background-color: #f9fafc;
+  transition: all 0.2s ease;
+  background-color: #f9fafb;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
   font-family: inherit;
-  line-height: 1.4; /* Mejor espaciado de líneas */
+  line-height: 1.5;
+  overflow-y: auto; /* Scroll interno si el texto es muy largo */
 }
 
 .input-wrapper textarea:focus {
-  border-color: #003b80;
+  border-color: #003b80; /* Color USS */
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(0, 59, 128, 0.1);
+  box-shadow: 0 0 0 4px rgba(0, 59, 128, 0.1); /* Ring de foco más prominente */
 }
 
+.input-wrapper textarea::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+/* ===== BOTÓN DE ENVIAR ===== */
 .send-button {
-  min-width: 100px; /* Ancho mínimo para texto */
-  height: 44px; /* Altura consistente */
-  padding: 0 20px; /* Padding horizontal para el texto */
-  border-radius: 8px; /* Consistente con textarea */
+  min-width: 110px;
+  height: 50px; /* Altura consistente con textarea */
+  padding: 0 24px;
+  border-radius: 12px; /* Consistente con textarea */
   border: none;
-  background-color: #003b80;
+  background: linear-gradient(135deg, #003b80 0%, #00509e 100%); /* Gradiente USS */
   color: white;
   cursor: pointer;
-  box-shadow: 0 2px 5px rgba(0, 59, 128, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 59, 128, 0.25);
   transition: all 0.2s ease;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap; /* Evitar que el texto se rompa */
-  flex-shrink: 0; /* No permitir que se encoja */
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.send-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00509e 0%, #0066cc 100%);
+  box-shadow: 0 6px 16px rgba(0, 59, 128, 0.35);
+  transform: translateY(-2px); /* Efecto de elevación */
+}
+
+.send-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 59, 128, 0.2);
 }
 
 .send-button:disabled {
-  background-color: #b0c3db;
+  background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.6;
   box-shadow: none;
+  transform: none;
 }
 
 .send-button:hover:not(:disabled) {
@@ -719,4 +957,93 @@
 /* Asegúrate de que el encabezado tenga un padding adecuado sin el botón */
 .chat-header {
   padding-left: 20px; /* Ajusta según sea necesario */
+}
+
+/* ===== MEDIA QUERIES ADICIONALES PARA BURBUJAS Y INPUT FIJO ===== */
+
+/* Tablets y pantallas medianas */
+@media (max-width: 1024px) {
+  .message {
+    max-width: 75%; /* Más ancho en tablets */
+  }
+  
+  .input-container {
+    left: 0; /* Sin compensación de sidebar */
+  }
+  
+  .message-content {
+    padding: 14px 18px;
+  }
+}
+
+/* Móviles */
+@media (max-width: 768px) {
+  .messages-container {
+    padding-bottom: 100px; /* Más espacio para input fijo en móvil */
+  }
+  
+  .message {
+    max-width: 85%; /* Casi todo el ancho en móvil */
+  }
+  
+  .message-content {
+    padding: 12px 16px;
+    border-radius: 16px;
+  }
+  
+  .input-container {
+    padding: 12px 16px;
+    left: 0 !important; /* Siempre sin sidebar en móvil */
+  }
+  
+  .input-wrapper textarea {
+    font-size: 14px;
+    min-height: 46px;
+    border-radius: 10px;
+  }
+  
+  .send-button {
+    min-width: 85px;
+    height: 46px;
+    padding: 0 16px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+}
+
+/* Móviles pequeños */
+@media (max-width: 480px) {
+  .messages-container {
+    padding: 12px 10px;
+    padding-bottom: 90px;
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+  
+  .message-content {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  
+  .input-container {
+    padding: 10px 12px;
+  }
+  
+  .input-wrapper {
+    gap: 6px;
+  }
+  
+  .input-wrapper textarea {
+    font-size: 13px;
+    min-height: 42px;
+  }
+  
+  .send-button {
+    min-width: 70px;
+    height: 42px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
 }

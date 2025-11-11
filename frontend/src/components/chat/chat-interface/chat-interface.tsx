@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './chat-interface.css';
 import ChatSidebar from '../chat-sidebar/chat-sidebar';
 import ChatNoConversation from '../chat-no-conversation/chat-no-conversation';
-import { listConversations, sendMessage, createConversation, listUserChatbots } from '../../../lib/api';
+import { listConversations, sendMessage, createConversation, listUserChatbots, checkConversationExists, deleteConversation } from '../../../lib/api';
 import type { ChatbotInfo, ChatResponseDTO } from '../../../lib/api';
 
 interface ChatMessage {
@@ -42,8 +42,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
   // Estado para modal de selección de chatbot
   const [showChatbotSelector, setShowChatbotSelector] = useState(false);
   
+  // Estados para sincronización y validación
+  const [showDeletedConversationAlert, setShowDeletedConversationAlert] = useState(false);
+  const [deletedConversationTitle, setDeletedConversationTitle] = useState('');
+  const [isValidatingConversation, setIsValidatingConversation] = useState(false);
+  
   // Ref para autoscroll
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Ref para el intervalo de polling
+  const pollingIntervalRef = useRef<number | null>(null);
 
   // Cargar conversaciones y chatbots al montar
   useEffect(() => {
@@ -109,8 +117,139 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
     }
   };
 
-  // Manejar selección de conversación
-  const handleSelectConversation = (conversationId: string) => {
+  // Validar existencia de conversación activa
+  const validateActiveConversation = async (conversationId: string) => {
+    try {
+      setIsValidatingConversation(true);
+      const result = await checkConversationExists(Number(conversationId));
+      
+      if (!result.exists || !result.has_access) {
+        // La conversación fue eliminada o el acceso fue revocado
+        const conv = conversations.find(c => c.id === conversationId);
+        const title = conv?.title || 'esta conversación';
+        
+        // Remover la conversación del estado
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        
+        // Limpiar mensajes de esta conversación
+        setMessagesByConv(prev => {
+          const updated = { ...prev };
+          delete updated[conversationId];
+          return updated;
+        });
+        
+        // Si es la conversación activa, limpiar y mostrar alerta
+        if (activeConversationId === conversationId) {
+          setActiveConversationId(null);
+          setDeletedConversationTitle(title);
+          setShowDeletedConversationAlert(true);
+          
+          // Auto-ocultar alerta después de 5 segundos
+          setTimeout(() => {
+            setShowDeletedConversationAlert(false);
+          }, 5000);
+        }
+        
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error validating conversation:', error);
+      return true; // En caso de error de red, asumir que existe
+    } finally {
+      setIsValidatingConversation(false);
+    }
+  };
+
+  // Sincronizar conversaciones periódicamente (polling)
+  const syncConversations = async () => {
+    try {
+      const convs = await listConversations();
+      const conversationIds = convs.map((c: any) => String(c.id));
+      
+      // Detectar conversaciones eliminadas
+      const deletedConversations = conversations.filter(
+        localConv => !conversationIds.includes(localConv.id)
+      );
+      
+      if (deletedConversations.length > 0) {
+        // Remover conversaciones eliminadas
+        setConversations(prev => 
+          prev.filter(c => conversationIds.includes(c.id))
+        );
+        
+        // Limpiar mensajes de conversaciones eliminadas
+        setMessagesByConv(prev => {
+          const updated = { ...prev };
+          deletedConversations.forEach(conv => {
+            delete updated[conv.id];
+          });
+          return updated;
+        });
+        
+        // Si la conversación activa fue eliminada, mostrar alerta
+        const activeWasDeleted = deletedConversations.some(
+          c => c.id === activeConversationId
+        );
+        
+        if (activeWasDeleted) {
+          const deletedConv = deletedConversations.find(c => c.id === activeConversationId);
+          setActiveConversationId(null);
+          setDeletedConversationTitle(deletedConv?.title || 'La conversación');
+          setShowDeletedConversationAlert(true);
+          
+          setTimeout(() => {
+            setShowDeletedConversationAlert(false);
+          }, 5000);
+        }
+      }
+      
+      // Actualizar conversaciones existentes (por si hubo cambios de título)
+      const updatedConversations: ChatConversation[] = convs.map((conv: any) => {
+        const existing = conversations.find(c => c.id === String(conv.id));
+        return {
+          id: String(conv.id),
+          title: conv.title,
+          createdAt: new Date(conv.created_at),
+          updatedAt: new Date(conv.updated_at || conv.created_at),
+          messages: existing?.messages || [],
+          chatbotId: conv.chatbot_id,
+          chatbotName: conv.chatbot_name
+        };
+      });
+      
+      setConversations(updatedConversations);
+    } catch (error) {
+      console.error('Error syncing conversations:', error);
+    }
+  };
+
+  // Iniciar polling al montar el componente
+  useEffect(() => {
+    // Polling cada 5 segundos
+    pollingIntervalRef.current = setInterval(() => {
+      syncConversations();
+    }, 5000);
+    
+    // Limpiar intervalo al desmontar
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [conversations, activeConversationId]); // Dependencias para detectar cambios
+
+  // Manejar selección de conversación con validación
+  const handleSelectConversation = async (conversationId: string) => {
+    // Validar que la conversación existe antes de seleccionarla
+    const isValid = await validateActiveConversation(conversationId);
+    
+    if (!isValid) {
+      // La conversación no existe o no hay acceso
+      return;
+    }
+    
     setActiveConversationId(conversationId);
     
     // Buscar la conversación seleccionada y su chatbot asociado
@@ -169,13 +308,62 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
     }
   };
 
-  // FUNCIONES DE ELIMINAR Y RENOMBRAR REMOVIDAS
-  // Los usuarios/docentes NO pueden eliminar ni renombrar conversaciones
-  // Solo los administradores tienen estos permisos
+  // Eliminar conversación (con confirmación previa desde modal)
+  const handleDeleteConversation = async (conversationId: string) => {
+    try {
+      // Eliminar en el backend
+      await deleteConversation(Number(conversationId));
+      
+      // Actualizar estado local inmediatamente
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      
+      // Limpiar mensajes de la conversación eliminada
+      setMessagesByConv(prev => {
+        const updated = { ...prev };
+        delete updated[conversationId];
+        return updated;
+      });
+      
+      // Si la conversación eliminada era la activa, limpiar selección
+      if (activeConversationId === conversationId) {
+        setActiveConversationId(null);
+        setSelectedChatbot(null);
+      }
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error deleting conversation:', error);
+      
+      // Si el error es 404, la conversación ya no existe
+      if (error?.status === 404) {
+        // Limpiar estado local de todas formas
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        setMessagesByConv(prev => {
+          const updated = { ...prev };
+          delete updated[conversationId];
+          return updated;
+        });
+        if (activeConversationId === conversationId) {
+          setActiveConversationId(null);
+          setSelectedChatbot(null);
+        }
+        return true;
+      }
+      
+      throw error; // Re-lanzar otros errores
+    }
+  };
 
-  // Enviar mensaje
+  // Enviar mensaje con validación previa
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !activeConversationId) return;
+    
+    // Validar que la conversación aún existe antes de enviar
+    const isValid = await validateActiveConversation(activeConversationId);
+    if (!isValid) {
+      // La conversación fue eliminada, no enviar mensaje
+      return;
+    }
     
     const text = inputValue;
     const convId = activeConversationId;
@@ -215,8 +403,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
         const updated = prev.map(c => (c.id === convId ? { ...c, updatedAt: new Date() } : c));
         return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      
+      // Si el error es 404, la conversación fue eliminada
+      if (error?.status === 404) {
+        await validateActiveConversation(convId);
+        return; // No mostrar mensaje de error adicional
+      }
+      
       const errMsg: ChatMessage = {
         id: Date.now() + 1,
         text: 'Error al obtener respuesta del asistente.',
@@ -259,14 +454,42 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) 
 
   return (
     <div className="chat-interface">
-      {/* Sidebar - Vista de USUARIO (sin funciones de editar/eliminar) */}
+      {/* Alerta de conversación eliminada */}
+      {showDeletedConversationAlert && (
+        <div className="deleted-conversation-alert">
+          <div className="alert-content">
+            <span className="alert-icon">⚠️</span>
+            <div className="alert-text">
+              <strong>Conversación eliminada</strong>
+              <p>
+                "{deletedConversationTitle}" ya no existe o ha sido eliminada por un administrador.
+              </p>
+            </div>
+            <button 
+              className="alert-close"
+              onClick={() => setShowDeletedConversationAlert(false)}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Indicador de validación */}
+      {isValidatingConversation && (
+        <div className="validation-indicator">
+          Verificando conversación...
+        </div>
+      )}
+      
+      {/* Sidebar - Vista de USUARIO con función de eliminar conversaciones */}
       <ChatSidebar
         conversations={sortedConversations}
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
-        isAdminView={false} // Usuario/Docente NO puede eliminar ni renombrar
-        // onDeleteConversation y onRenameConversation NO se pasan
+        onDeleteConversation={handleDeleteConversation} // Ahora los usuarios SÍ pueden eliminar sus conversaciones
+        isAdminView={false} // Sigue siendo false (no tienen rename ni otras funciones admin)
       />
 
       {/* Área principal */}
