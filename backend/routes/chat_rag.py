@@ -519,6 +519,56 @@ async def delete_conversation(
         )
 
 
+@router.get("/conversations/{conversation_id}/exists")
+async def check_conversation_exists(
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    conversation_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db)
+):
+    """Verificar si una conversación existe y el usuario tiene acceso"""
+    
+    # Verificar que la conversación existe
+    conversation = db.query(ConversationModel).filter(
+        ConversationModel.id == conversation_id
+    ).first()
+    
+    if not conversation:
+        return {
+            "exists": False,
+            "has_access": False,
+            "reason": "conversation_deleted"
+        }
+    
+    # Verificar si el usuario tiene acceso (propietario o participante)
+    has_access = False
+    if conversation.user_id == current_user.id:
+        has_access = True
+    else:
+        participant = db.query(ConversationParticipantModel).filter(
+            ConversationParticipantModel.conversation_id == conversation.id,
+            ConversationParticipantModel.user_id == current_user.id
+        ).first()
+        if participant:
+            has_access = True
+    
+    if not has_access:
+        return {
+            "exists": True,
+            "has_access": False,
+            "reason": "access_denied"
+        }
+    
+    return {
+        "exists": True,
+        "has_access": True,
+        "conversation": {
+            "id": conversation.id,
+            "title": conversation.title,
+            "updated_at": conversation.updated_at.isoformat()
+        }
+    }
+
+
 @router.patch("/conversations/{conversation_id}")
 async def update_conversation(
     payload: dict,
