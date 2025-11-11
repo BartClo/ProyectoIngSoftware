@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './chat-sidebar.css';
 import ReportModal from '../reporte-model/report-modal';
+import DeleteConversationModal from '../delete-conversation-modal/delete-conversation-modal';
 import { createReport } from '../../../lib/api';
 
 interface ChatConversation {
@@ -32,9 +33,10 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showReportModal, setShowReportModal] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const handleStartEdit = (conversation: ChatConversation) => {
     setEditingId(conversation.id);
@@ -61,18 +63,28 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
   
   const handleClickDelete = (id: string) => {
-    setShowConfirmDelete(id);
+    setShowDeleteModal(id);
   };
   
-  const handleConfirmDelete = (id: string) => {
-    if (onDeleteConversation) {
-      onDeleteConversation(id);
+  const handleConfirmDelete = async () => {
+    if (!showDeleteModal || !onDeleteConversation) return;
+    
+    setIsDeleting(true);
+    try {
+      await onDeleteConversation(showDeleteModal);
+      setShowDeleteModal(null);
+    } catch (error) {
+      console.error('Error al eliminar conversación:', error);
+      alert('No se pudo eliminar la conversación. Por favor, intente de nuevo.');
+    } finally {
+      setIsDeleting(false);
     }
-    setShowConfirmDelete(null);
   };
   
   const handleCancelDelete = () => {
-    setShowConfirmDelete(null);
+    if (!isDeleting) {
+      setShowDeleteModal(null);
+    }
   };
   
   const handleReportClick = (conversationId: string) => {
@@ -200,30 +212,6 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       </button>
                     </div>
                   </div>
-                ) : showConfirmDelete === conversation.id ? (
-                  <div className="delete-confirm-container" onClick={(e) => e.stopPropagation()}>
-                    <p>¿Eliminar esta conversación?</p>
-                    <div className="confirm-buttons">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleConfirmDelete(conversation.id);
-                        }}
-                        className="confirm-delete"
-                      >
-                        Sí
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCancelDelete();
-                        }}
-                        className="cancel-delete"
-                      >
-                        No
-                      </button>
-                    </div>
-                  </div>
                 ) : (
                   <>
                     <div className="conversation-info">
@@ -249,7 +237,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       >
                         ⋮
                       </button>
-                      {/* Solo mostrar editar y eliminar en vista admin */}
+                      {/* Mostrar editar solo en vista admin */}
                       {isAdminView && onRenameConversation && (
                         <button
                           className="action-button edit"
@@ -262,7 +250,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                           ✎
                         </button>
                       )}
-                      {isAdminView && onDeleteConversation && (
+                      {/* Mostrar eliminar si se proporciona la función (admin o usuario) */}
+                      {onDeleteConversation && (
                         <button
                           className="action-button delete"
                           onClick={(e) => {
@@ -296,6 +285,14 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           conversationTitle={conversations.find(conv => conv.id === showReportModal)?.title || 'Conversación'}
           onClose={handleReportClose}
           onSubmit={handleReportSubmit}
+        />
+      )}
+      
+      {showDeleteModal && (
+        <DeleteConversationModal
+          conversationTitle={conversations.find(conv => conv.id === showDeleteModal)?.title || 'Conversación'}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
         />
       )}
     </div>
