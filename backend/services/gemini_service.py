@@ -17,6 +17,14 @@ class GeminiService:
         if not api_key:
             raise ValueError("GEMINI_API_KEY no encontrada en las variables de entorno")
         
+        # Verificar que la API Key no sea placeholder
+        if api_key in ["REEMPLAZAR_CON_TU_API_KEY_VALIDA", "tu_api_key_aqui", "AIzaSyCFqEzblTMaFYpmx462NHwCHXdZV6IxY3s"]:
+            raise ValueError(
+                "⚠️ API Key de Gemini no válida. "
+                "Obtener una nueva en: https://makersuite.google.com/app/apikey "
+                "y configurar en backend/.env"
+            )
+        
         # Log para verificar que la key se está cargando (solo primeros y últimos caracteres por seguridad)
         logger.info(f"API Key cargada: {api_key[:10]}...{api_key[-10:] if len(api_key) > 20 else 'corta'}")
         

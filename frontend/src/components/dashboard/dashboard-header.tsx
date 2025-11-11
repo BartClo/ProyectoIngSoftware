@@ -67,7 +67,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <button
               className={`cta-button ${activeAdminView === 'users' ? 'active' : ''}`}
               onClick={onUsersAdminClick}
-              title="Administración de usuarios"
             >
               Administración de usuarios
             </button>
@@ -75,14 +74,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <button
               className={`cta-button ${activeAdminView === 'reports' ? 'active' : ''}`}
               onClick={onReportsClick}
-              title="Ver reportes"
             >
               Reportes
             </button>
             <button
               className={`cta-button ${activeAdminView === 'create-conv' ? 'active' : ''}`}
               onClick={onCreateConversationClick}
-              title="Gestión de IA y Documentos"
             >
               Gestión de IA
             </button>
@@ -94,7 +91,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button help-button"
             onClick={onHelp} 
             aria-label="Ayuda"
-            title="Ver ayuda"
           >
             <span className="icon">❓</span>
           </button>
@@ -102,7 +98,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button settings-button"
             onClick={onSettings} 
             aria-label="Configuración"
-            title="Abrir configuración"
           >
             <span className="icon">⚙️</span>
           </button>
@@ -110,7 +105,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="header-button logout-button"
             onClick={handleLogoutClick} 
             aria-label="Cerrar sesión"
-            title="Cerrar sesión"
           >
             <span className="icon">🚪</span>
           </button>

@@ -101,6 +101,13 @@ export async function deleteAdminUser(userId: number) {
   return api(`/admin/users/${userId}/`, { method: 'DELETE' });
 }
 
+export async function updateUserPassword(userId: number, password: string) {
+  return api(`/admin/users/${userId}/password`, { 
+    method: 'PATCH', 
+    body: { password } 
+  });
+}
+
 export async function createConversationAdmin(form: FormData) {
   // send multipart/form-data to /admin/conversations/
   const url = API_BASE + '/admin/conversations/';

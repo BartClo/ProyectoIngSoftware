@@ -1,0 +1,21 @@
+# VERSIONES COMPATIBLES - Python 3.11/3.12 compatible
+fastapi==0.104.1
+uvicorn==0.24.0
+python-dotenv==1.0.0
+
+# Pydantic con versión compatible
+pydantic==2.4.2
+
+# Auth básico sin crypto pesado
+python-jose==3.3.0
+
+# DB básico
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.7
+
+# Groq simple
+groq==0.9.0
+
+# Utils básicos
+requests==2.31.0
+python-multipart==0.0.6

@@ -117,21 +117,51 @@ async def health_check():
     """Health check para servicios de monitoreo"""
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
+@app.get("/ai_health/")
+async def ai_health():
+    """Health check del sistema de IA (Groq)"""
+    try:
+        from services.groq_service import groq_service
+        
+        # Obtener información del modelo
+        model_info = groq_service.get_model_info()
+        
+        return {
+            "status": "healthy",
+            "ai_provider": "Groq",
+            "model": model_info["model_name"],
+            "provider_info": model_info["provider"],
+            "temperature": model_info["temperature"],
+            "max_tokens": model_info["max_tokens"],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "ai_provider": "Groq",
+            "model": "unknown",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 @app.get("/chatbot_info/")
 async def chatbot_info():
     """Información sobre el estado del chatbot"""
     return {
         "mode": "rag_enabled",
         "rag_enabled": True,
-        "description": "Chatbot con RAG usando Pinecone, Gemini 2.5 Flash y Sentence Transformers",
-        "model": "gemini-2.5-flash",
+        "description": "Chatbot con RAG usando Pinecone, Groq/Llama3 y Sentence Transformers",
+        "model": "llama-3.1-8b-instant",
+        "ai_provider": "Groq",
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
         "vector_store": "pinecone",
         "features": {
             "custom_chatbots": True,
             "document_processing": True,
             "semantic_search": True,
-            "multi_user": True
+            "multi_user": True,
+            "ultra_fast_inference": True
         }
     }
 
@@ -211,6 +241,32 @@ def admin_create_user(
         db.rollback()
         raise HTTPException(status_code=400, detail="Email ya registrado")
     return {"id": user.id, "email": user.email, "nombre": user.nombre}
+
+@app.patch("/admin/users/{user_id}/password", status_code=200)
+def admin_update_user_password(
+    user_id: int,
+    payload: dict,
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    """Actualizar contraseña de usuario desde panel administrativo"""
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail='Usuario no encontrado')
+    
+    new_password = payload.get('password')
+    if not new_password:
+        raise HTTPException(status_code=400, detail='Contraseña requerida')
+    
+    # Validar seguridad de contraseña
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail='La contraseña debe tener al menos 8 caracteres')
+    
+    # Hash con bcrypt (automáticamente incluye salt)
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+    
+    return {"message": "Contraseña actualizada exitosamente", "user_id": user.id}
 
 @app.delete('/admin/users/{user_id}/', status_code=204)
 def admin_delete_user(

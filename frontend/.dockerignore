@@ -1,0 +1,14 @@
+# Ignorar en Docker build
+node_modules
+npm-debug.log
+dist
+.env
+.env.local
+.DS_Store
+.vscode
+.idea
+*.log
+coverage
+.git
+.gitignore
+README.md

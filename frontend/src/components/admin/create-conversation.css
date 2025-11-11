@@ -1,14 +1,80 @@
+/* =================================================================
+   HEURÍSTICAS DE NIELSEN APLICADAS EN GESTIÓN DE IA
+   =================================================================
+   
+   1. VISIBILIDAD DEL ESTADO (Visibility of system status)
+      - Toast notifications mejoradas con iconos
+      - Badges de estado (Procesado/Pendiente/Activo)
+      - Spinners e indicadores de progreso
+   
+   2. RELACIÓN SISTEMA-MUNDO REAL (Match between system and real world)
+      - Terminología familiar: "Conversaciones" no "Chatbots"
+      - Iconos reconocibles: 🤖 📁 👥 🔍
+      - Placeholders con ejemplos prácticos
+   
+   3. CONTROL Y LIBERTAD (User control and freedom)
+      - Modal de confirmación antes de eliminar
+      - Botón "Cancelar" en todos los formularios
+      - Navegación libre entre pestañas
+   
+   4. CONSISTENCIA Y ESTÁNDARES (Consistency and standards)
+      - Colores USS (#002855) consistentes con dashboard
+      - Estructura de cards idéntica a usuarios/reportes
+      - Botones estandarizados (.primary, .small, .danger)
+   
+   5. PREVENCIÓN DE ERRORES (Error prevention)
+      - Validación de título obligatorio
+      - Tipos de archivo restringidos
+      - Botones deshabilitados cuando inválidos
+   
+   6. RECONOCIMIENTO vs RECUERDO (Recognition rather than recall)
+      - Labels siempre visibles
+      - Placeholders informativos
+      - Aria-labels completos
+   
+   7. FLEXIBILIDAD Y EFICIENCIA (Flexibility and efficiency of use)
+      - Pestañas para diferentes flujos
+      - Drag & drop para archivos
+      - Búsqueda en tiempo real
+   
+   8. DISEÑO MINIMALISTA (Aesthetic and minimalist design)
+      - Paleta limitada: azul USS, blanco, gris
+      - Iconos solo funcionales
+      - Espaciado generoso
+   
+   9. RECONOCER Y RECUPERAR ERRORES (Help users recognize and recover)
+      - Mensajes de error específicos
+      - Sugerencias de solución
+      - Estados vacíos informativos
+   
+   10. AYUDA Y DOCUMENTACIÓN (Help and documentation)
+       - Tooltips contextuales
+       - Descripción de formatos aceptados
+       - Estados con información clara
+   
+   ================================================================= */
+
 .create-form {
-  padding: 16px;
+  padding: 20px;
   display: grid;
-  gap: 12px;
+  gap: 16px;
+  background: #fff;
+  border-radius: 8px;
 }
 
 .field-label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
+.field-label label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #002855; /* H4: Color USS consistente */
+  letter-spacing: 0.3px;
+}
+
+/* H6: Chips para usuarios con diseño mejorado */
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -16,15 +82,22 @@
 }
 
 .chip {
-  background: #eef2f7;
+  background: linear-gradient(135deg, #e8f0ff 0%, #d4e3f7 100%); /* H8: Gradiente sutil */
   color: #002855;
-  border: 1px solid #cfd7e3;
+  border: 2px solid #002855;
   border-radius: 16px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease; /* H1: Feedback visual */
+}
+
+.chip:hover {
+  background: linear-gradient(135deg, #d4e3f7 0%, #c2d7f0 100%);
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.2);
 }
 
 .chip button {
@@ -32,86 +105,371 @@
   border: none;
   cursor: pointer;
   color: #002855;
+  font-size: 16px;
+  padding: 2px;
+  transition: transform 0.15s ease;
 }
 
-.user-typeahead {
-  position: relative;
+.chip button:hover {
+  transform: scale(1.2); /* H1: Feedback al hover */
 }
 
-.suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: #fff;
-  border: 1px solid #e1e6ef;
-  border-radius: 6px;
-  margin-top: 4px;
-  max-height: 220px;
+/* ===== H6: SELECTOR DE USUARIOS CON SCROLL ===== */
+/* Botón toggle para abrir selector */
+.user-selector-toggle {
+  border: 2px solid #ddd !important;
+  transition: all 0.2s ease;
+}
+
+.user-selector-toggle:hover {
+  border-color: #002855 !important;
+  box-shadow: 0 2px 6px rgba(0, 40, 85, 0.1);
+}
+
+.user-selector-toggle:focus {
+  outline: 2px solid #002855;
+  outline-offset: 2px;
+}
+
+/* Dropdown con scroll personalizado */
+.user-dropdown-scroll {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+
+/* Scrollbar personalizada con colores USS */
+.user-dropdown-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.user-dropdown-scroll::-webkit-scrollbar-track {
+  background: #f5f7fb;
+  border-radius: 4px;
+}
+
+.user-dropdown-scroll::-webkit-scrollbar-thumb {
+  background: #002855;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.user-dropdown-scroll::-webkit-scrollbar-thumb:hover {
+  background: #001f40;
+}
+
+/* Lista de usuarios dentro del scroll */
+.user-list-scroll {
+  max-height: 180px;
   overflow-y: auto;
-  z-index: 10;
 }
 
-.suggestion-item {
-  padding: 8px 10px;
+.user-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.user-list-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.user-list-scroll::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.user-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: #002855;
+}
+
+/* Item de usuario con checkbox */
+.user-checkbox-item:last-child {
+  border-bottom: none !important;
+}
+
+.user-checkbox-item:active {
+  transform: scale(0.98);
+}
+
+/* ===== H1/H4: BOTÓN PARA SUBIR ARCHIVOS ===== */
+.file-upload-button {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 12px 16px;
+  background: white;
+  border: 2px dashed #002855;
+  border-radius: 8px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.95em;
+  color: #002855;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 12px;
 }
 
-.suggestion-item:hover {
-  background: #f2f6fb;
+.file-upload-button:hover {
+  background: #f0f8ff;
+  border-color: #001f40;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 40, 85, 0.15);
 }
 
+.file-upload-button:focus {
+  outline: 2px solid #002855;
+  outline-offset: 2px;
+}
+
+.file-upload-button:active {
+  transform: scale(0.98) !important;
+}
+
+.file-upload-icon {
+  font-size: 1.3em;
+}
+
+.file-upload-hint {
+  font-size: 0.8em;
+  color: #666;
+  margin-left: auto;
+}
+
+/* ===== TÍTULOS DE SECCIÓN ===== */
+/* H4: Consistencia - Títulos uniformes en toda la interfaz */
+.section-title {
+  margin: 0;
+  color: #002855;
+  font-size: 1.1em;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* ===== SECCIÓN DE DOCUMENTOS ===== */
+.documents-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.documents-section-title {
+  margin: 0;
+  color: #002855;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.documents-section-count {
+  font-size: 0.85em;
+  color: #666;
+}
+
+/* Lista de archivos mejorada */
 .files-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .file-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 10px 12px;
+  background: #f9fafc;
   border: 1px solid #e1e6ef;
   border-radius: 6px;
-  padding: 6px 10px;
-  background: #fff;
+  transition: all 0.2s ease;
 }
 
+.files-list .file-row:hover {
+  background: #f0f8ff !important;
+  border-color: #002855 !important;
+  transform: translateX(4px);
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-icon {
+  font-size: 1.2em;
+}
+
+.file-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 0.85em;
+  color: #666;
+}
+
+/* Botón eliminar archivo */
+.file-delete-btn {
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.file-delete-btn:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.file-delete-btn:focus {
+  outline: 2px solid #dc3545;
+  outline-offset: 2px;
+}
+
+/* ===== BOTONES DE ACCIÓN ===== */
 .create-actions {
   display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e6ef;
+}
+
+.btn-cancel {
+  flex: 1;
+  padding: 12px 20px;
+  background: white;
+  border: 2px solid #6c757d;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: #6c757d;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: #6c757d;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.2);
+}
+
+.btn-create {
+  flex: 2;
+  padding: 12px 24px;
+  background: #002855;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: white;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
 }
 
+.btn-create:hover:not(:disabled) {
+  background: #001f40;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 40, 85, 0.3);
+}
+
+.btn-create:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-create:focus {
+  outline: 2px solid #002855;
+  outline-offset: 2px;
+}
+
+/* H4: Botón primario con estilo del dashboard */
 .small.primary {
-  background: #002855;
+  background: #002855; /* Color azul USS */
   color: #fff;
-  border: none;
+  border: 2px solid #002855;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.2);
+}
+
+.small.primary:hover {
+  background: #001f40; /* H1: Feedback visual */
+  border-color: #001f40;
+  box-shadow: 0 4px 8px rgba(0, 40, 85, 0.3);
+  transform: translateY(-1px);
 }
 
 .small.primary:disabled {
-  opacity: 0.7;
+  opacity: 0.5; /* H5: Estado deshabilitado claro */
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-/* ===== ESTILOS PARA PESTAÑAS ===== */
+/* ===== H7: PESTAÑAS PARA DIFERENTES FLUJOS ===== */
 .tab-button {
-  background: #f8f9fa;
-  border: 1px solid #e1e6ef;
-  padding: 8px 16px;
-  border-radius: 6px 6px 0 0;
+  background: #f5f7fb;
+  border: 2px solid #e1e6ef;
+  padding: 10px 18px;
+  border-radius: 8px 8px 0 0;
   cursor: pointer;
-  font-weight: 500;
-  color: #666;
-  transition: all 0.2s;
+  font-weight: 600;
+  font-size: 14px;
+  color: #495057; /* Corregido para mejor contraste */
+  transition: all 0.2s ease;
+  letter-spacing: 0.3px;
 }
 
 .tab-button:hover {
-  background: #eef2f7;
+  background: #e8ecf4;
+  color: #002855;
+  border-color: #002855;
 }
 
 .tab-button.active {
-  background: #002855;
+  background: #002855; /* H4: Color USS consistente */
   color: #fff;
   border-color: #002855;
+  box-shadow: 0 -2px 8px rgba(0, 40, 85, 0.2); /* H1: Profundidad */
 }
 
 /* ===== ESTILOS PARA CHATBOTS ===== */
