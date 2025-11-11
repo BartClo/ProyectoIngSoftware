@@ -1,0 +1,315 @@
+/* delete-conversation-modal.css */
+
+/* Overlay del modal */
+.delete-conversation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+  padding: 20px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Contenedor del modal */
+.delete-conversation-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 100%;
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header del modal */
+.delete-conversation-modal .modal-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #e8ebf2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.modal-icon-warning {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(238, 90, 82, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(238, 90, 82, 0.6);
+  }
+}
+
+.delete-conversation-modal .modal-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #002855;
+  text-align: center;
+}
+
+.modal-close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.modal-close-button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #002855;
+}
+
+.modal-close-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Body del modal */
+.delete-conversation-modal .modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-warning-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.modal-conversation-info {
+  background: #f5f7fb;
+  border: 2px solid #e8ebf2;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.conversation-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.5px;
+}
+
+.conversation-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #002855;
+  text-align: center;
+  word-break: break-word;
+}
+
+.modal-alert {
+  background: #fef2f2;
+  border: 2px solid #fecaca;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: #991b1b;
+}
+
+.modal-alert svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.modal-alert span {
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* Footer del modal */
+.delete-conversation-modal .modal-footer {
+  padding: 16px 24px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-button {
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  min-width: 140px;
+  border: none;
+}
+
+.button-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.button-cancel:hover:not(:disabled) {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.button-cancel:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.button-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.button-delete::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.button-delete:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.button-delete:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+}
+
+.button-delete:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.button-delete:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Spinner de carga */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .delete-conversation-modal {
+    margin: 0 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  .delete-conversation-modal .modal-header h2 {
+    font-size: 18px;
+  }
+
+  .modal-warning-text {
+    font-size: 14px;
+  }
+
+  .delete-conversation-modal .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .modal-button {
+    width: 100%;
+  }
+}
+
+/* Accesibilidad */
+.delete-conversation-modal:focus-visible {
+  outline: 3px solid #002855;
+  outline-offset: 4px;
+}
+
+.modal-button:focus-visible {
+  outline: 3px solid #002855;
+  outline-offset: 2px;
+}
+
+/* Prevenir scroll del body cuando modal está abierto */
+body.modal-open {
+  overflow: hidden;
+}
