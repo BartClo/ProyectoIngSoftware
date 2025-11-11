@@ -168,6 +168,10 @@ export async function deleteConversation(conversationId: number) {
   return api(`/api/chat/conversations/${conversationId}`, { method: 'DELETE' });
 }
 
+export async function checkConversationExists(conversationId: number) {
+  return api(`/api/chat/conversations/${conversationId}/exists`);
+}
+
 export async function listMessages(conversationId: number) {
   return api(`/api/chat/conversations/${conversationId}/messages`);
 }
