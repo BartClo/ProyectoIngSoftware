@@ -17,7 +17,7 @@ from models import (
 from auth import get_current_user
 from services.pinecone_service import pinecone_service
 from services.groq_service import groq_service  # Groq - ultrarrápido y confiable
-from services.embedding_service import embedding_service
+from services.embedding_service_pinecone import embedding_service
 
 router = APIRouter(prefix="/api/chat", tags=["Chat with RAG"])
 

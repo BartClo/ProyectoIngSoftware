@@ -1,60 +1,32 @@
-# ============================================# VERSIONES COMPATIBLES - Python 3.11/3.12 compatible
-
-# DEPENDENCIAS CORE - FastAPI y Databasefastapi==0.104.1
-
-# ============================================uvicorn==0.24.0
-
-fastapi>=0.115.0python-dotenv==1.0.0
-
-uvicorn[standard]>=0.32.0
-
-python-dotenv==1.0.0# Pydantic con versión compatible
-
-sqlalchemy>=2.0.35pydantic==2.4.2
-
-psycopg2-binary==2.9.9
-
-python-multipart==0.0.6# Auth básico sin crypto pesado
-
-python-jose==3.3.0
-
+# ============================================
+# RENDER.COM OPTIMIZED - MINIMAL MEMORY FOOTPRINT
 # ============================================
 
-# AUTENTICACIÓN Y SEGURIDAD# DB básico
+# CORE - FastAPI y Database
+fastapi==0.104.1
+uvicorn==0.24.0
+python-dotenv==1.0.0
+pydantic==2.4.2
 
-# ============================================sqlalchemy==2.0.23
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.7
 
-python-jose[cryptography]==3.3.0psycopg2-binary==2.9.7
+# Auth (sin bcrypt pesado)
+python-jose==3.3.0
+passlib==1.7.4
 
-passlib[bcrypt]==1.7.4
-
-pydantic>=2.10.0# Groq simple
-
+# Groq AI (ligero)
 groq==0.9.0
 
-# ============================================
+# Pinecone (sin modelos locales)
+pinecone==5.0.0
 
-# AI/LLM - Solo Groq (más rápido y confiable)# Utils básicos
+# Procesamiento de documentos (ligero)
+pypdf==3.17.4
+python-docx==0.8.11
 
-# ============================================requests==2.31.0
-
-groq>=0.9.0python-multipart==0.0.6
-
-# ============================================
-# SISTEMA RAG - Vector DB (Pinecone Inference API - sin modelos locales)
-# ============================================
-pinecone>=5.0.0
-
-# ============================================
-# PROCESAMIENTO DE DOCUMENTOS
-# ============================================
-pypdf>=3.17.4
-python-docx>=0.8.11
-markdown>=3.5.1
-
-# ============================================
-# UTILIDADES
-# ============================================
-aiohttp>=3.9.0
-aiofiles>=23.2.0
-requests>=2.31.0
+# Utilidades básicas
+requests==2.31.0
+python-multipart==0.0.6
+aiofiles==23.2.0

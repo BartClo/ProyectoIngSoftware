@@ -13,13 +13,19 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: pip install -r requirements-render.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install --no-cache-dir -r requirements-render.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 30
     
     # Environment Variables
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
+      
+      # Memory optimization
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: MALLOC_ARENA_MAX
+        value: "2"
       
       # Database Connection (auto-linked from Render PostgreSQL)
       - key: DATABASE_URL
