@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// URL del backend en producción (Render)
+const API_BASE = 'https://chatbot-rag-backend-vl70.onrender.com';
+// Para desarrollo local, cambia manualmente a: 'http://localhost:8000'
 
 type RequestOptions = {
   method?: string;
