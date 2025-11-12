@@ -1,0 +1,58 @@
+# Ignore during Render deployment to save space and time
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Development files
+.env
+.env.local
+*.backup
+
+# Testing
+test_*.py
+debug_*.py
+*_test.py
+tests/
+.pytest_cache/
+
+# Documentation
+README.md
+*.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Uploads (will be created on server)
+uploads/
+embeddings_cache/
+
+# Database (using external PostgreSQL)
+*.db
+*.sqlite
+*.sqlite3
+db/
+
+# Logs
+*.log
+logs/
+
+# Context docs (if not needed)
+context_docs/
+
+# Git
+.git/
+.gitignore
