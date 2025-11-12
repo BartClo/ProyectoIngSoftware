@@ -9,20 +9,6 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Importar el servicio de embeddings correcto según el entorno
-USE_LITE_EMBEDDINGS = os.getenv("USE_LITE_EMBEDDINGS", "false").lower() == "true"
-
-if USE_LITE_EMBEDDINGS:
-    logger.info("Usando embedding service lite para Render")
-    from .embedding_service_lite import embedding_service
-else:
-    logger.info("Usando embedding service completo para desarrollo")
-    try:
-        from .embedding_service import embedding_service
-    except ImportError:
-        logger.warning("Embedding service completo no disponible, usando lite")
-        from .embedding_service_lite import embedding_service
-
 
 class PineconeService:
     def __init__(self):
@@ -34,6 +20,25 @@ class PineconeService:
         self.pc = Pinecone(api_key=api_key)
         self.environment = os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
         self.dimension = 384  # Dimensión para all-MiniLM-L6-v2
+        self._embedding_service = None  # Lazy loading
+        
+        logger.info(f"PineconeService inicializado con environment: {self.environment}")
+    
+    def _get_embedding_service(self):
+        """Lazy loading del embedding service"""
+        if self._embedding_service is None:
+            # Usar Pinecone Inference en producción para ahorrar RAM
+            use_pinecone_inference = os.getenv("USE_PINECONE_INFERENCE", "true").lower() == "true"
+            
+            if use_pinecone_inference:
+                logger.info("Usando Pinecone Inference API (sin carga de modelos local)")
+                from .embedding_service_pinecone import embedding_service
+            else:
+                logger.info("Usando embedding service local (desarrollo)")
+                from .embedding_service import embedding_service
+            
+            self._embedding_service = embedding_service
+        return self._embedding_service
         
         logger.info(f"PineconeService inicializado con environment: {self.environment}")
         
