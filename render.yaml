@@ -1,31 +1,100 @@
-services:
-  # Backend Service
-  - type: web
-    name: chatbot-rag-backend
+# ============================================services:
+
+# RENDER.COM DEPLOYMENT CONFIGURATION  # Backend Service
+
+# Backend API + PostgreSQL Database  - type: web
+
+# ============================================    name: chatbot-rag-backend
+
     runtime: python
-    buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
-    envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: GROQ_API_KEY
-        sync: false
+
+services:    buildCommand: "pip install -r backend/requirements.txt"
+
+  # ============================================    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+  # Backend API Service    envVars:
+
+  # ============================================      - key: DATABASE_URL
+
+  - type: web        sync: false
+
+    name: chatbot-rag-backend      - key: GROQ_API_KEY
+
+    env: python        sync: false
+
+    region: oregon      - key: PINECONE_API_KEY
+
+    plan: free        sync: false
+
+    buildCommand: cd backend && pip install -r requirements.txt      - key: PINECONE_ENVIRONMENT
+
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT        value: gcp-starter
+
+          - key: PINECONE_INDEX_NAME
+
+    # Environment Variables        value: chatbot-rag-index
+
+    envVars:      - key: SECRET_KEY
+
+      - key: PYTHON_VERSION        generateValue: true
+
+        value: "3.11"      - key: ALGORITHM
+
+              value: HS256
+
+      # Database Connection (auto-linked from Render PostgreSQL)      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+
+      - key: DATABASE_URL        value: 30
+
+        fromDatabase:    
+
+          name: chatbot-rag-db  # PostgreSQL Database
+
+          property: connectionString  - type: pserv
+
+          name: chatbot-rag-db
+
+      # AI/LLM API Keys (set these in Render Dashboard)    plan: free
+
+      - key: GROQ_API_KEY    databaseName: chatbot_rag
+
+        sync: false    databaseUser: postgres
+      
+      # Pinecone Vector DB
       - key: PINECONE_API_KEY
         sync: false
       - key: PINECONE_ENVIRONMENT
-        value: gcp-starter
+        value: us-east-1
       - key: PINECONE_INDEX_NAME
         value: chatbot-rag-index
+      
+      # Security
       - key: SECRET_KEY
         generateValue: true
-      - key: ALGORITHM
-        value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: 30
+        value: "30"
+      
+      # Application Settings
+      - key: ENVIRONMENT
+        value: production
+      - key: TOP_K_RESULTS
+        value: "5"
+      - key: FRONTEND_URL
+        value: https://tu-frontend.vercel.app
+      
+      # CORS Settings
+      - key: ALLOWED_ORIGINS
+        value: https://tu-frontend.vercel.app,http://localhost:5173
     
-  # PostgreSQL Database
-  - type: pserv
-    name: chatbot-rag-db
-    plan: free
+    # Health Check
+    healthCheckPath: /health
+
+# ============================================
+# PostgreSQL Database
+# ============================================
+databases:
+  - name: chatbot-rag-db
     databaseName: chatbot_rag
-    databaseUser: postgres
+    user: chatbot_user
+    plan: free
+    region: oregon

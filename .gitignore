@@ -1,28 +1,86 @@
-# Node
+# ============================================
+# NODE / FRONTEND
+# ============================================
 node_modules/
 dist/
 .vite/
+.vercel/
+.turbo/
+*.local
 
-# Python
+# ============================================
+# PYTHON / BACKEND
+# ============================================
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.Python
 .venv/
 venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Env
+# ============================================
+# ENVIRONMENT VARIABLES (SEGURIDAD)
+# ============================================
 .env
+.env.local
+.env.production
+.env.development
 *.env
+!.env.example
+!.env.production.example
 
-# AI Models & Cache
+# ============================================
+# AI MODELS & CACHE
+# ============================================
 *.gguf
+*.bin
+models/
 embeddings_cache/
 context_docs/
 uploads/
 docstore.pkl
 vector_store.index
-.txt
 
-# Docker
+# ============================================
+# LOGS & DATABASES
+# ============================================
 *.log
+*.sqlite
+*.db
 db_data/
+logs/
+
+# ============================================
+# IDE & EDITORS
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============================================
+# BUILD & DEPLOYMENT
+# ============================================
+.render/
+.vercel/
+build/
+.cache/
+
+# ============================================
+# SYSTEM FILES
+# ============================================
+.DS_Store
+Thumbs.db
+desktop.ini
+*.bak
+*.tmp
