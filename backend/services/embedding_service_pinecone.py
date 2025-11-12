@@ -23,9 +23,10 @@ class EmbeddingServicePinecone:
         
         self.pc = Pinecone(api_key=api_key)
         
-        # Usar modelo de Pinecone que genera 384 dimensiones
-        self.model_name = "multilingual-e5-small"  # 384 dimensiones
-        self.dimension = 384
+        # Usar modelo de Pinecone Inference que genera 384 dimensiones
+        # Modelos disponibles: https://docs.pinecone.io/guides/inference/understanding-inference
+        self.model_name = "multilingual-e5-large"  # Genera 1024 dims, pero podemos usar 384 del índice
+        self.dimension = 1024  # Dimensión real del modelo
         
         logger.info(f"EmbeddingServicePinecone inicializado con modelo: {self.model_name}")
     

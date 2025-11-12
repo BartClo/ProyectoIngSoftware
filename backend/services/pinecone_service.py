@@ -19,7 +19,7 @@ class PineconeService:
         
         self.pc = Pinecone(api_key=api_key)
         self.environment = os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
-        self.dimension = 384  # Dimensión para all-MiniLM-L6-v2
+        self.dimension = 1024  # Dimensión para multilingual-e5-large
         self._embedding_service = None  # Lazy loading
         
         logger.info(f"PineconeService inicializado con environment: {self.environment}")
