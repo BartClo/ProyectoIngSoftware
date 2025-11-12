@@ -1,64 +1,34 @@
-# ============================================services:
+# ============================================
+# RENDER.COM DEPLOYMENT CONFIGURATION
+# Backend API + PostgreSQL Database
+# ============================================
 
-# RENDER.COM DEPLOYMENT CONFIGURATION  # Backend Service
-
-# Backend API + PostgreSQL Database  - type: web
-
-# ============================================    name: chatbot-rag-backend
-
-    runtime: python
-
-services:    buildCommand: "pip install -r backend/requirements.txt"
-
-  # ============================================    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
-
-  # Backend API Service    envVars:
-
-  # ============================================      - key: DATABASE_URL
-
-  - type: web        sync: false
-
-    name: chatbot-rag-backend      - key: GROQ_API_KEY
-
-    env: python        sync: false
-
-    region: oregon      - key: PINECONE_API_KEY
-
-    plan: free        sync: false
-
-    buildCommand: cd backend && pip install -r requirements.txt      - key: PINECONE_ENVIRONMENT
-
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT        value: gcp-starter
-
-          - key: PINECONE_INDEX_NAME
-
-    # Environment Variables        value: chatbot-rag-index
-
-    envVars:      - key: SECRET_KEY
-
-      - key: PYTHON_VERSION        generateValue: true
-
-        value: "3.11"      - key: ALGORITHM
-
-              value: HS256
-
-      # Database Connection (auto-linked from Render PostgreSQL)      - key: ACCESS_TOKEN_EXPIRE_MINUTES
-
-      - key: DATABASE_URL        value: 30
-
-        fromDatabase:    
-
-          name: chatbot-rag-db  # PostgreSQL Database
-
-          property: connectionString  - type: pserv
-
+services:
+  # ============================================
+  # Backend API Service
+  # ============================================
+  - type: web
+    name: chatbot-rag-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    
+    # Environment Variables
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      
+      # Database Connection (auto-linked from Render PostgreSQL)
+      - key: DATABASE_URL
+        fromDatabase:
           name: chatbot-rag-db
-
-      # AI/LLM API Keys (set these in Render Dashboard)    plan: free
-
-      - key: GROQ_API_KEY    databaseName: chatbot_rag
-
-        sync: false    databaseUser: postgres
+          property: connectionString
+      
+      # AI/LLM API Keys (set these in Render Dashboard)
+      - key: GROQ_API_KEY
+        sync: false
       
       # Pinecone Vector DB
       - key: PINECONE_API_KEY
