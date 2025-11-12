@@ -10,16 +10,10 @@ import {
   createChatbot,
   listUserChatbots,
   deleteChatbot,
-  updateChatbot,
   uploadDocuments,
   listChatbotDocuments,
   deleteChatbotDocument,
-  processDocuments,
-  getDocumentStatus,
-  grantUserAccess,
-  listChatbotUsers,
-  revokeChatbotAccess,
-  getChatbotStats
+  processDocuments
 } from '../../lib/api';
 
 // ===== TIPOS =====

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './chat-sidebar.css';
 import ReportModal from '../reporte-model/report-modal';
+import DeleteConversationModal from '../delete-conversation-modal/delete-conversation-modal';
 import { createReport } from '../../../lib/api';
 
 interface ChatConversation {
@@ -15,9 +16,10 @@ interface ChatSidebarProps {
   conversations: ChatConversation[];
   activeConversationId: string | null;
   onSelectConversation: (id: string) => void;
-  onDeleteConversation: (id: string) => void;
-  onRenameConversation: (id: string, newTitle: string) => void;
+  onDeleteConversation?: (id: string) => void; // OPCIONAL para admin
+  onRenameConversation?: (id: string, newTitle: string) => void; // OPCIONAL para admin
   onNewConversation?: () => void;
+  isAdminView?: boolean; // Flag para determinar si mostrar funciones admin
 }
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -26,13 +28,15 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onSelectConversation,
   onDeleteConversation,
   onRenameConversation,
-  onNewConversation
+  onNewConversation,
+  isAdminView = false // Por defecto es vista de usuario (sin edición/eliminación)
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showReportModal, setShowReportModal] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const handleStartEdit = (conversation: ChatConversation) => {
     setEditingId(conversation.id);
@@ -40,7 +44,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
   
   const handleSaveEdit = () => {
-    if (editingId && editTitle.trim()) {
+    if (editingId && editTitle.trim() && onRenameConversation) {
       onRenameConversation(editingId, editTitle.trim());
       setEditingId(null);
     }
@@ -59,16 +63,28 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
   
   const handleClickDelete = (id: string) => {
-    setShowConfirmDelete(id);
+    setShowDeleteModal(id);
   };
   
-  const handleConfirmDelete = (id: string) => {
-    onDeleteConversation(id);
-    setShowConfirmDelete(null);
+  const handleConfirmDelete = async () => {
+    if (!showDeleteModal || !onDeleteConversation) return;
+    
+    setIsDeleting(true);
+    try {
+      await onDeleteConversation(showDeleteModal);
+      setShowDeleteModal(null);
+    } catch (error) {
+      console.error('Error al eliminar conversación:', error);
+      alert('No se pudo eliminar la conversación. Por favor, intente de nuevo.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
   
   const handleCancelDelete = () => {
-    setShowConfirmDelete(null);
+    if (!isDeleting) {
+      setShowDeleteModal(null);
+    }
   };
   
   const handleReportClick = (conversationId: string) => {
@@ -112,6 +128,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
   
   const handleNewConversationClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevenir comportamiento default que causa scroll
     e.stopPropagation();
     if (onNewConversation) {
       onNewConversation();
@@ -123,7 +140,6 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   return (
     <div className="chat-sidebar">
       <div className="sidebar-header">
-        <h2>Conversaciones</h2>
         <button 
           className="new-conversation-button" 
           onClick={handleNewConversationClick}
@@ -196,30 +212,6 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       </button>
                     </div>
                   </div>
-                ) : showConfirmDelete === conversation.id ? (
-                  <div className="delete-confirm-container" onClick={(e) => e.stopPropagation()}>
-                    <p>¿Eliminar esta conversación?</p>
-                    <div className="confirm-buttons">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleConfirmDelete(conversation.id);
-                        }}
-                        className="confirm-delete"
-                      >
-                        Sí
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCancelDelete();
-                        }}
-                        className="cancel-delete"
-                      >
-                        No
-                      </button>
-                    </div>
-                  </div>
                 ) : (
                   <>
                     <div className="conversation-info">
@@ -245,26 +237,32 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       >
                         ⋮
                       </button>
-                      <button
-                        className="action-button edit"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartEdit(conversation);
-                        }}
-                        title="Renombrar"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        className="action-button delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleClickDelete(conversation.id);
-                        }}
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
+                      {/* Mostrar editar solo en vista admin */}
+                      {isAdminView && onRenameConversation && (
+                        <button
+                          className="action-button edit"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartEdit(conversation);
+                          }}
+                          title="Renombrar"
+                        >
+                          ✎
+                        </button>
+                      )}
+                      {/* Mostrar eliminar si se proporciona la función (admin o usuario) */}
+                      {onDeleteConversation && (
+                        <button
+                          className="action-button delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClickDelete(conversation.id);
+                          }}
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -287,6 +285,14 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           conversationTitle={conversations.find(conv => conv.id === showReportModal)?.title || 'Conversación'}
           onClose={handleReportClose}
           onSubmit={handleReportSubmit}
+        />
+      )}
+      
+      {showDeleteModal && (
+        <DeleteConversationModal
+          conversationTitle={conversations.find(conv => conv.id === showDeleteModal)?.title || 'Conversación'}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
         />
       )}
     </div>

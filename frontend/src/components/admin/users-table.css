@@ -1,14 +1,70 @@
+/* =================================================================
+   HEURÍSTICAS DE NIELSEN APLICADAS EN USERS-TABLE
+   =================================================================
+   
+   1. VISIBILIDAD DEL ESTADO DEL SISTEMA (Visibility of system status)
+      - Toast notifications para feedback inmediato
+      - Badges de estado (Activo/Inactivo) con colores distintivos
+      - Estados de edición claramente diferenciados
+   
+   2. RELACIÓN ENTRE EL SISTEMA Y EL MUNDO REAL (Match between system and real world)
+      - Lenguaje claro: "Nuevo Usuario", "Guardar", "Cancelar"
+      - Íconos y labels entendibles por usuarios no técnicos
+   
+   3. CONTROL Y LIBERTAD DEL USUARIO (User control and freedom)
+      - Botón "Cancelar" siempre visible durante edición
+      - Confirmación antes de eliminar (modal de confirmación)
+      - Posibilidad de deshacer cambios sin guardar
+   
+   4. CONSISTENCIA Y ESTÁNDARES (Consistency and standards)
+      - Colores consistentes con el dashboard (#002855 azul USS)
+      - Botones con mismo estilo en toda la interfaz
+      - Espaciado y tipografía uniforme
+   
+   5. PREVENCIÓN DE ERRORES (Error prevention)
+      - Inputs validados en línea
+      - Confirmación antes de acciones destructivas
+      - Campos requeridos claramente marcados
+   
+   6. RECONOCIMIENTO ANTES QUE RECUERDO (Recognition rather than recall)
+      - Placeholders descriptivos en campos de búsqueda
+      - Labels visibles en formularios
+      - Estados visibles (no requiere recordar estado anterior)
+   
+   7. FLEXIBILIDAD Y EFICIENCIA DE USO (Flexibility and efficiency of use)
+      - Búsqueda rápida en tiempo real
+      - Edición inline (sin modales extra)
+      - Paginación para manejar grandes volúmenes
+   
+   8. DISEÑO ESTÉTICO Y MINIMALISTA (Aesthetic and minimalist design)
+      - Sin elementos decorativos innecesarios
+      - Colores azules y blancos (paleta limitada)
+      - Espaciado generoso para claridad
+   
+   9. AYUDAR A USUARIOS A RECONOCER Y RECUPERARSE DE ERRORES
+      - Mensajes de error claros (toasts)
+      - Color rojo para acciones destructivas
+      - Feedback visual inmediato
+   
+   10. AYUDA Y DOCUMENTACIÓN (Help and documentation)
+       - Placeholders informativos
+       - Labels descriptivos
+       - Mensajes contextuales
+   
+   ================================================================= */
+
 .admin-wrapper {
   width: 100%;
   height: calc(100vh - 60px);
   padding: 16px;
   overflow: auto;
+  background: #f5f7fb; /* H8: Fondo neutro para contraste */
 }
 
 .admin-card {
   background: #fff;
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 40, 85, 0.1); /* H4: Sombra con azul USS */
   overflow: hidden;
 }
 
@@ -16,136 +72,768 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eef0f4;
+  padding: 20px 24px;
+  border-bottom: 2px solid #002855; /* H4: Borde azul USS para consistencia */
+  background: linear-gradient(to right, #ffffff, #f9fafc); /* H8: Gradiente sutil */
 }
 
 .admin-card-header h2 {
   margin: 0;
-  color: #002855;
-  font-size: 18px;
+  color: #002855; /* H4: Color azul USS consistente */
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
 .admin-card-header .actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  align-items: center;
 }
 
+/* H6 & H10: Campo de búsqueda con placeholder descriptivo */
 .search {
-  padding: 10px 12px;
-  border: 1px solid #d8dde6;
+  padding: 10px 14px;
+  border: 2px solid #d8dde6;
   border-radius: 6px;
-  min-width: 260px;
+  min-width: 280px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  background: #fff;
 }
 
+.search:focus {
+  outline: none;
+  border-color: #002855; /* H1 & H9: Feedback visual al enfocar */
+  box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.1);
+}
+
+/* H4: Botón primario con colores del dashboard */
 .primary {
-  background: #002855;
+  background: #002855; /* Color azul USS del dashboard */
   color: #fff;
-  border: none;
-  padding: 10px 14px;
+  border: 2px solid #002855;
+  padding: 10px 16px;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.2);
 }
 
-.primary:hover { background: #001f40; }
+.primary:hover { 
+  background: #001f40; /* H1: Feedback visual al hover */
+  border-color: #001f40;
+  box-shadow: 0 4px 8px rgba(0, 40, 85, 0.3);
+  transform: translateY(-1px);
+}
 
-.table-scroll { width: 100%; overflow: auto; }
+.primary:active {
+  transform: translateY(0); /* H1: Feedback táctil al click */
+}
+
+/* H7: Scroll optimizado para grandes volúmenes */
+.table-scroll { 
+  width: 100%; 
+  overflow: auto;
+  max-height: calc(100vh - 280px); /* H8: Evitar scroll excesivo */
+}
 
 .users-table {
   width: 100%;
   border-collapse: collapse;
 }
 
+/* H4 & H8: Encabezados con estilo consistente y minimalista */
 .users-table thead th {
   position: sticky;
   top: 0;
-  background: #f9fafc;
-  color: #002855;
+  background: #002855; /* Color azul USS del dashboard */
+  color: #ffffff;
   text-align: left;
   font-weight: 600;
   font-size: 13px;
-  padding: 12px 16px;
-  border-bottom: 1px solid #eef0f4;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 14px 16px;
+  border-bottom: 3px solid #001f40;
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.1); /* H1: Separación visual */
 }
 
+/* H6: Celdas con buen contraste y legibilidad */
 .users-table tbody td {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f1f3f7;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e8ebf2;
   font-size: 14px;
+  color: #1f2937;
+  vertical-align: middle;
 }
 
-.users-table tbody tr:hover { background: #fafbfd; }
+/* H1: Feedback visual al hover sobre filas */
+.users-table tbody tr:hover { 
+  background: #f0f4f8;
+  box-shadow: 0 2px 4px rgba(0, 40, 85, 0.05);
+}
 
-.users-table tbody tr.inactive { opacity: 0.72; }
+/* H1 & H6: Usuarios inactivos visualmente diferenciados */
+.users-table tbody tr.inactive { 
+  opacity: 0.6;
+  background: #f9f9f9;
+}
 
+/* H5 & H9: Inputs con validación visual */
 .cell-input {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #d8dde6;
+  padding: 8px 12px;
+  border: 2px solid #d8dde6;
   border-radius: 6px;
   font-size: 14px;
+  transition: all 0.2s ease;
+  background: #fff;
 }
 
+.cell-input:focus {
+  outline: none;
+  border-color: #002855; /* H1: Feedback al enfocar */
+  box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.1);
+}
+
+/* H1 & H5: Estilos para gestión de contraseñas seguras */
+.password-field-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-change-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 2px solid #002855;
+}
+
+.password-inputs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.password-placeholder {
+  font-family: monospace;
+  color: #6b7280;
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+/* H2 & H9: Botón para mostrar/ocultar contraseña (visibilidad del estado) */
+.toggle-visibility-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.toggle-visibility-btn:hover {
+  background: #e5e7eb;
+  transform: scale(1.1);
+}
+
+/* H9: Mensajes de validación de contraseña (prevención y recuperación de errores) */
+.validation-errors {
+  display: block;
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.validation-errors-list {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.validation-errors-list p {
+  margin: 0 0 8px 0;
+  color: #991b1b;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.validation-errors-list ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.validation-errors-list li {
+  color: #dc2626;
+  font-size: 12px;
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+/* H9: Botón de acción de contraseña profesional y descriptivo */
+.btn-password {
+  background: #f8f9fa !important;
+  color: #002855 !important;
+  border: 2px solid #002855 !important;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  position: relative;
+}
+
+.btn-password::before {
+  content: "⚿";
+  margin-right: 6px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.btn-password:hover {
+  background: #002855 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 40, 85, 0.3);
+}
+
+.btn-password:active {
+  transform: translateY(0);
+}
+
+/* H4: Botón de editar con estilo profesional */
+.btn-edit {
+  background: #ffffff !important;
+  color: #002855 !important;
+  border: 2px solid #002855 !important;
+}
+
+.btn-edit:hover {
+  background: #002855 !important;
+  color: #ffffff !important;
+}
+
+/* H9: Mensajes de validación de contraseña con diseño profesional */
+.validation-errors {
+  display: block;
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 600;
+  padding: 6px 10px;
+  background: #fef2f2;
+  border-left: 3px solid #dc2626;
+  border-radius: 4px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.validation-errors-list {
+  background: #fef2f2;
+  border: 2px solid #fecaca;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 10px;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.1);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.validation-errors-list p {
+  margin: 0 0 10px 0;
+  color: #991b1b;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.validation-errors-list ul {
+  margin: 0;
+  padding-left: 24px;
+  list-style-type: none;
+}
+
+.validation-errors-list li {
+  color: #dc2626;
+  font-size: 12px;
+  margin: 6px 0;
+  line-height: 1.6;
+  position: relative;
+  padding-left: 8px;
+  font-weight: 500;
+}
+
+.validation-errors-list li::before {
+  content: "×";
+  position: absolute;
+  left: -16px;
+  color: #dc2626;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* H1 & H5: Contenedor de cambio de contraseña profesional */
+.password-change-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+  border-radius: 8px;
+  border: 2px solid #002855;
+  box-shadow: 0 2px 8px rgba(0, 40, 85, 0.1);
+  min-width: 400px;
+}
+
+.password-inputs {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.password-field-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 140px;
+}
+
+.password-placeholder {
+  font-family: 'Courier New', monospace;
+  color: #6b7280;
+  font-size: 14px;
+  letter-spacing: 3px;
+  font-weight: 600;
+  background: #f3f4f6;
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* H2 & H6: Botón para mostrar/ocultar contraseña profesional */
+.toggle-visibility-btn {
+  background: #ffffff;
+  border: 2px solid #002855;
+  color: #002855;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-visibility-btn:hover {
+  background: #002855;
+  color: #ffffff;
+  transform: scale(1.02);
+  box-shadow: 0 2px 6px rgba(0, 40, 85, 0.3);
+}
+
+.toggle-visibility-btn:active {
+  transform: scale(0.98);
+}
+
+/* H1 & H9: Indicador de fortaleza de contraseña profesional */
+.password-strength-indicator {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.strength-bar {
+  flex: 1;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: all 0.3s ease;
+  border-radius: 3px;
+}
+
+.strength-fill.weak {
+  width: 33%;
+  background: linear-gradient(to right, #dc2626, #ef4444);
+}
+
+.strength-fill.medium {
+  width: 66%;
+  background: linear-gradient(to right, #f59e0b, #fbbf24);
+}
+
+.strength-fill.strong {
+  width: 100%;
+  background: linear-gradient(to right, #10b981, #34d399);
+}
+
+.strength-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 60px;
+  text-align: right;
+}
+
+.strength-label.weak {
+  color: #dc2626;
+}
+
+.strength-label.medium {
+  color: #f59e0b;
+}
+
+.strength-label.strong {
+  color: #10b981;
+}
+
+/* H5: Inputs con estados de validación visual profesionales */
+.cell-input.valid {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.cell-input.invalid {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.cell-input.validating {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+/* H1: Animación sutil para feedback inmediato */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* H5 & H9: Botón deshabilitado con feedback visual claro */
+button.small.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #94a3b8;
+  border-color: #94a3b8;
+  color: #e2e8f0;
+  animation: none;
+  box-shadow: none;
+}
+
+button.small.primary:disabled:hover {
+  transform: none;
+  background: #94a3b8;
+  border-color: #94a3b8;
+}
+
+/* H8: Espaciado profesional y minimalista */
+.password-change-container .cell-input {
+  font-size: 13px;
+  height: 38px;
+}
+
+/* H4: Consistencia con el diseño del dashboard */
+.password-change-container .small.primary {
+  background: #002855;
+  color: #ffffff;
+  border-color: #002855;
+  font-weight: 600;
+  padding: 9px 18px;
+}
+
+/* H10: Tooltips y ayuda contextual profesional */
+[title] {
+  position: relative;
+  cursor: default;
+}
+
+/* H1 & H4: Transiciones suaves para cambios de estado */
+.cell-input,
+.btn-password,
+.btn-edit,
+button.small {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* H6: Focus visible para accesibilidad */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(251, 191, 36, 0.2);
+}
+
+/* H8: Espaciado consistente entre elementos */
+.row-actions {
+  gap: 10px;
+}
+
+.password-inputs {
+  gap: 12px;
+}
+
+/* H1: Estado de carga para operaciones asíncronas */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+button.loading::after {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* H2: Lenguaje claro y profesional en placeholders */
+::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+  font-style: italic;
+}
+
+/* H7: Optimización para pantallas grandes */
+@media (min-width: 1400px) {
+  .password-change-container {
+    min-width: 480px;
+  }
+  
+  .password-inputs {
+    flex-wrap: nowrap;
+  }
+}
+
+/* H8: Optimización para dispositivos móviles */
+@media (max-width: 768px) {
+  .password-change-container {
+    min-width: unset;
+    padding: 12px;
+  }
+  
+  .password-inputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .password-field-wrapper {
+    min-width: unset;
+  }
+  
+  .toggle-visibility-btn {
+    width: 100%;
+  }
+  
+  .row-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  button.small {
+    width: 100%;
+  }
+}
+
+/* H4: Consistencia tipográfica profesional */
+.admin-wrapper,
+.admin-card,
+.users-table,
+button,
+input,
+select {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* H1: Feedback visual para acciones exitosas */
+@keyframes successPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+}
+
+.cell-input.valid:focus {
+  animation: successPulse 1s ease;
+}
+
+/* H9: Estados de error con máxima claridad */
+.cell-input.invalid:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
+/* H6: Mejor legibilidad en tablas */
+.users-table tbody td {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* H1: Badges con estados claramente visibles */
 .badge {
   display: inline-block;
-  padding: 4px 8px;
+  padding: 6px 12px;
   border-radius: 999px;
   background: #e8ebf2;
   color: #3a4760;
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 .badge.success {
-  background: #e6f4ea;
-  color: #1b5e20;
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
 
-.row-actions { display: flex; gap: 8px; }
+/* H7: Acciones agrupadas y organizadas */
+.row-actions { 
+  display: flex; 
+  gap: 8px;
+  justify-content: flex-start;
+}
 
+/* H4: Botones pequeños con estilo del dashboard */
 button.small {
-  padding: 6px 10px;
-  border: 1px solid #d8dde6;
+  padding: 8px 14px;
+  border: 2px solid #002855;
   background: #fff;
   color: #002855;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-button.small:hover { background: #f6f8fb; }
+/* H1: Feedback visual al hover */
+button.small:hover { 
+  background: #002855;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 40, 85, 0.3);
+  transform: translateY(-1px);
+}
 
+/* H4: Botón primario pequeño (Guardar) */
+button.small.primary {
+  background: #002855;
+  color: #fff;
+  border-color: #002855;
+}
+
+button.small.primary:hover { 
+  background: #001f40;
+  border-color: #001f40;
+}
+
+/* H9: Botón de peligro claramente diferenciado */
 button.small.danger {
-  border-color: #f3c0bf;
-  color: #b71c1c;
+  border-color: #dc3545;
+  color: #dc3545;
+  background: #fff;
 }
 
-button.small.danger:hover { background: #fff3f2; }
+button.small.danger:hover { 
+  background: #dc3545;
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
 
-/* Mantener altura de filas estable durante edición */
+/* H4 & H8: Altura consistente para estabilidad visual */
 .users-table tbody tr.fixed-height {
-  height: 56px;
+  height: 60px;
 }
 .users-table tbody tr.fixed-height td {
   vertical-align: middle;
 }
 .users-table .cell-input {
-  height: 36px;
+  height: 38px;
   box-sizing: border-box;
 }
 
-/* Toast de notificación */
+/* H1: Toast de notificación para feedback inmediato */
 .toast-notice {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: #002855;
+  bottom: 24px;
+  right: 24px;
+  background: #002855; /* Color azul USS del dashboard */
   color: #fff;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 24px rgba(0, 40, 85, 0.4);
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity .2s ease, transform .2s ease;
+  transition: opacity .25s ease, transform .25s ease;
   z-index: 2000;
+  font-weight: 500;
+  font-size: 14px;
+  min-width: 220px;
+  text-align: center;
+  border: 2px solid #001f40;
 }
 
 .toast-notice.show {
@@ -153,17 +841,38 @@ button.small.danger:hover { background: #fff3f2; }
   transform: translateY(0);
 }
 
-/* Paginación */
+/* H7: Paginación para eficiencia con grandes volúmenes */
 .pagination-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 16px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  background: linear-gradient(to right, #f9fafc, #ffffff);
+  border-top: 2px solid #002855;
 }
+
 .page-indicator {
-  color: #3a4760;
-  font-size: 13px;
+  color: #002855;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* H3: Botones de paginación con estados deshabilitados claros */
+.pagination-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #e8ebf2;
+  color: #495057;
+  border-color: #d8dde6;
+}
+
+.pagination-bar button:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background: #e8ebf2;
+  color: #495057;
 }
 
 /* Panel de detalle de reportes (expandible) */

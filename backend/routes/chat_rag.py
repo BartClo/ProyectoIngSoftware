@@ -99,9 +99,51 @@ async def send_message_with_rag(
     if not user_text:
         raise HTTPException(status_code=400, detail="Mensaje vacío")
     
+    # Detectar saludos y respuestas simples (no requieren búsqueda RAG)
+    greetings = ["hola", "hello", "hi", "buenos días", "buenas tardes", "buenas noches", "hey", "saludos"]
+    thanks = ["gracias", "thank you", "thanks", "muchas gracias"]
+    is_greeting = any(greeting in user_text.lower() for greeting in greetings)
+    is_thanks = any(thank in user_text.lower() for thank in thanks)
+    
     chatbot = None
     chatbot_name = "Asistente General"
     context_chunks = []
+    
+    # Obtener información del chatbot si se especifica
+    if payload.chatbot_id:
+        chatbot = await verify_chatbot_access(payload.chatbot_id, current_user, db)
+        chatbot_name = chatbot.title
+    
+    # Respuesta directa para saludos simples
+    if is_greeting and len(user_text.split()) <= 3:
+        files_info = ""
+        if chatbot:
+            from models import ChatbotDocument
+            documents = db.query(ChatbotDocument).filter(
+                ChatbotDocument.chatbot_id == chatbot.id,
+                ChatbotDocument.is_processed == True
+            ).all()
+            
+            if documents:
+                file_names = [doc.original_filename for doc in documents]
+                files_text = ", ".join(file_names)
+                files_info = f"\n\nTengo acceso a: {files_text}. ¿Qué te gustaría saber sobre ellos?"
+        
+        return ChatResponse(
+            response=f"¡Hola! ¿En qué puedo ayudarte?{files_info}",
+            sources=[],
+            chatbot_used=chatbot_name,
+            context_chunks=0
+        )
+    
+    # Respuesta directa para agradecimientos
+    if is_thanks and len(user_text.split()) <= 5:
+        return ChatResponse(
+            response="¡De nada! ¿Hay algo más en lo que pueda ayudarte?",
+            sources=[],
+            chatbot_used=chatbot_name,
+            context_chunks=0
+        )
     
     # Si se especifica un chatbot, usar RAG
     if payload.chatbot_id:
@@ -121,8 +163,8 @@ async def send_message_with_rag(
                     namespace=f"chatbot_{chatbot.id}"
                 )
                 
-                # Filtrar resultados por score mínimo
-                min_score = 0.7  # Ajustar según necesidades
+                # Filtrar resultados por score mínimo (reducido para preguntas generales)
+                min_score = 0.3  # ✅ Reducido a 0.3 para preguntas generales sobre archivos
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
@@ -134,10 +176,21 @@ async def send_message_with_rag(
     
     # Generar respuesta usando Groq (ultrarrápido y confiable)
     try:
+        # Verificar si el chatbot tiene documentos cargados
+        has_documents = False
+        if chatbot:
+            from models import ChatbotDocument
+            doc_count = db.query(ChatbotDocument).filter(
+                ChatbotDocument.chatbot_id == chatbot.id,
+                ChatbotDocument.is_processed == True
+            ).count()
+            has_documents = doc_count > 0
+        
         response_data = await groq_service.generate_response(
             user_question=user_text,
             context_chunks=context_chunks,
-            chatbot_name=chatbot_name
+            chatbot_name=chatbot_name,
+            has_documents=has_documents
         )
         
         # Códigos archivados:
@@ -202,7 +255,61 @@ async def create_conversation_with_chatbot(
     # Mensaje de bienvenida
     if payload.with_welcome:
         if chatbot:
-            welcome_text = f"¡Hola! Soy tu asistente especializado en {chatbot.title}. ¿En qué puedo ayudarte?"
+            # Obtener lista de documentos del chatbot
+            from models import ChatbotDocument
+            documents = db.query(ChatbotDocument).filter(
+                ChatbotDocument.chatbot_id == chatbot.id,
+                ChatbotDocument.is_processed == True
+            ).all()
+            
+            if documents:
+                # Crear lista de nombres de archivos
+                file_names = [doc.original_filename for doc in documents]
+                files_text = "\n".join([f"📄 {name}" for name in file_names])
+                
+                # Intentar obtener un resumen del contenido
+                try:
+                    # Hacer una búsqueda general para obtener contenido de los documentos
+                    sample_embedding = await embedding_service.generate_single_embedding(
+                        "resumen contenido principal documentos"
+                    )
+                    
+                    if sample_embedding:
+                        sample_results = await pinecone_service.query_vectors(
+                            index_name=chatbot.pinecone_index_name,
+                            query_vector=sample_embedding,
+                            top_k=3,
+                            namespace=f"chatbot_{chatbot.id}"
+                        )
+                        
+                        # Obtener temas principales de los metadatos
+                        topics = set()
+                        for result in sample_results:
+                            metadata = result.get('metadata', {})
+                            text_sample = metadata.get('text', '')[:200]
+                            if text_sample:
+                                topics.add(text_sample.split('.')[0] if '.' in text_sample else text_sample[:100])
+                        
+                        topics_text = ""
+                        if topics:
+                            topics_list = list(topics)[:2]  # Máximo 2 temas
+                            topics_text = f"\n\nEstos documentos contienen información sobre:\n" + "\n".join([f"• {t}" for t in topics_list])
+                
+                except Exception as e:
+                    print(f"Error obteniendo resumen de documentos: {str(e)}")
+                    topics_text = ""
+                
+                welcome_text = (
+                    f"¡Hola! Soy {chatbot.title}, tu asistente especializado.\n\n"
+                    f"Tengo acceso a los siguientes documentos:\n{files_text}"
+                    f"{topics_text}\n\n"
+                    f"¿Qué te gustaría saber? Puedo ayudarte con cualquier pregunta sobre el contenido de estos archivos."
+                )
+            else:
+                welcome_text = (
+                    f"¡Hola! Soy {chatbot.title}. "
+                    f"Actualmente no tengo documentos cargados, pero estoy listo para ayudarte."
+                )
         else:
             welcome_text = "¡Hola! Soy tu asistente de IA. ¿Cómo puedo ayudarte hoy?"
         
@@ -251,6 +358,12 @@ async def send_message_to_conversation(
     if not user_text:
         raise HTTPException(status_code=400, detail="Mensaje vacío")
     
+    # Detectar saludos y respuestas simples (no requieren búsqueda RAG)
+    greetings = ["hola", "hello", "hi", "buenos días", "buenas tardes", "buenas noches", "hey", "saludos"]
+    thanks = ["gracias", "thank you", "thanks", "muchas gracias"]
+    is_greeting = any(greeting in user_text.lower() for greeting in greetings)
+    is_thanks = any(thank in user_text.lower() for thank in thanks)
+    
     # Guardar mensaje del usuario
     user_msg = MessageModel(
         conversation_id=conversation.id,
@@ -263,6 +376,67 @@ async def send_message_to_conversation(
     chatbot = None
     chatbot_name = "Asistente General"
     context_chunks = []
+    
+    # Obtener información del chatbot si existe
+    if conversation.chatbot_id:
+        chatbot = await verify_chatbot_access(conversation.chatbot_id, current_user, db)
+        chatbot_name = chatbot.title
+    
+    # Respuesta directa para saludos simples
+    if is_greeting and len(user_text.split()) <= 3:
+        # Obtener lista de archivos si hay chatbot
+        files_info = ""
+        if chatbot:
+            from models import ChatbotDocument
+            documents = db.query(ChatbotDocument).filter(
+                ChatbotDocument.chatbot_id == chatbot.id,
+                ChatbotDocument.is_processed == True
+            ).all()
+            
+            if documents:
+                file_names = [doc.original_filename for doc in documents]
+                files_text = ", ".join(file_names)
+                files_info = f"\n\nTengo acceso a: {files_text}. ¿Qué te gustaría saber sobre ellos?"
+        
+        greeting_response = f"¡Hola! ¿En qué puedo ayudarte?{files_info}"
+        
+        # Guardar respuesta
+        ai_msg = MessageModel(
+            conversation_id=conversation.id,
+            sender="ai",
+            text=greeting_response
+        )
+        db.add(ai_msg)
+        conversation.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return ChatResponse(
+            response=greeting_response,
+            sources=[],
+            chatbot_used=chatbot_name,
+            context_chunks=0
+        )
+    
+    # Respuesta directa para agradecimientos
+    if is_thanks and len(user_text.split()) <= 5:
+        thanks_response = "¡De nada! ¿Hay algo más en lo que pueda ayudarte?"
+        
+        # Guardar respuesta
+        ai_msg = MessageModel(
+            conversation_id=conversation.id,
+            sender="ai",
+            text=thanks_response
+        )
+        db.add(ai_msg)
+        conversation.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return ChatResponse(
+            response=thanks_response,
+            sources=[],
+            chatbot_used=chatbot_name,
+            context_chunks=0
+        )
     
     # Si la conversación está vinculada a un chatbot, usar RAG
     if conversation.chatbot_id:
@@ -282,8 +456,8 @@ async def send_message_to_conversation(
                     namespace=f"chatbot_{chatbot.id}"
                 )
                 
-                # Filtrar por score mínimo
-                min_score = 0.7
+                # Filtrar por score mínimo (reducido para captar más contexto)
+                min_score = 0.3  # ✅ Reducido a 0.3 para preguntas generales sobre archivos
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
@@ -306,11 +480,22 @@ async def send_message_to_conversation(
     
     # Generar respuesta con Groq (ultrarrápido y confiable)
     try:
+        # Verificar si el chatbot tiene documentos cargados
+        has_documents = False
+        if chatbot:
+            from models import ChatbotDocument
+            doc_count = db.query(ChatbotDocument).filter(
+                ChatbotDocument.chatbot_id == chatbot.id,
+                ChatbotDocument.is_processed == True
+            ).count()
+            has_documents = doc_count > 0
+        
         response_data = await groq_service.generate_response(
             user_question=user_text,
             context_chunks=context_chunks,
             chatbot_name=chatbot_name,
-            conversation_history=conversation_history
+            conversation_history=conversation_history,
+            has_documents=has_documents
         )
         
         # Códigos archivados:
@@ -487,6 +672,22 @@ async def delete_conversation(
             status_code=500, 
             detail=f"Error eliminando conversación: {str(e)}"
         )
+
+
+@router.get("/conversations/{conversation_id}/exists")
+async def check_conversation_exists(
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    conversation_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db)
+):
+    """Verificar si una conversación existe y el usuario tiene acceso"""
+    
+    conversation = db.query(ConversationModel).filter(
+        ConversationModel.id == conversation_id,
+        ConversationModel.user_id == current_user.id
+    ).first()
+    
+    return {"exists": conversation is not None}
 
 
 @router.patch("/conversations/{conversation_id}")

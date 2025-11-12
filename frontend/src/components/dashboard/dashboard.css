@@ -4,34 +4,60 @@
   flex-direction: column;
   height: 100vh;
   width: 100%;
-  overflow: hidden;
+  overflow: hidden; /* Prevenir scroll en el contenedor principal */
   position: relative;
+  background-color: #f5f7fb; /* Fondo gris claro USS */
 }
 
 .dashboard-content {
   flex: 1;
   display: flex;
   position: relative;
-  overflow: hidden;
-  background-color: #002855; /* Color azul USS correcto */
-  border: none; /* Eliminé 'red' y puse 'none' para quitar el borde */
-  box-shadow: none; /* Corregí el valor de box-shadow */
+  overflow: hidden; /* Prevenir scroll no deseado */
+  background-color: #002855; /* Color azul USS */
+  border: none;
+  box-shadow: none;
+  min-height: 0; /* Importante para que flexbox maneje correctamente el overflow */
+}
+
+/* Separador visual sutil entre header y content */
+.dashboard-container::after {
+  content: '';
+  position: absolute;
+  top: 60px; /* Altura del header */
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    rgba(0, 40, 85, 0.1) 0%, 
+    rgba(0, 40, 85, 0.05) 50%, 
+    rgba(0, 40, 85, 0.1) 100%
+  );
+  z-index: 99; /* Por debajo del header pero visible */
 }
 
 /* Evitar desplazamiento cuando se abren modales */
 body.modal-open {
   overflow: hidden;
+  position: fixed; /* Prevenir scroll de fondo */
+  width: 100%;
 }
 
-/* Eliminar desplazamiento innecesario */
+/* Eliminar desplazamiento innecesario y asegurar estabilidad */
 html, body {
   overflow: hidden;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
 }
 
-/* Asegurar que el contenido ocupe todo el espacio disponible */
+/* Asegurar que el contenido ocupe todo el espacio disponible sin scroll */
 #root, .app-container {
   height: 100vh;
+  width: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* Estilos para pantallas pequeñas */

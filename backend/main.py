@@ -255,6 +255,31 @@ def admin_delete_user(
     db.delete(user)
     db.commit()
 
+@app.patch('/admin/users/{user_id}/password', status_code=200)
+def admin_update_user_password(
+    user_id: int,
+    payload: dict,
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    """Actualizar contraseña de un usuario (endpoint administrativo)"""
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail='Usuario no encontrado')
+    
+    new_password = payload.get('password')
+    if not new_password:
+        raise HTTPException(status_code=400, detail='Contraseña requerida')
+    
+    # Validación básica de longitud
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail='La contraseña debe tener al menos 6 caracteres')
+    
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+    
+    return {"message": "Contraseña actualizada exitosamente"}
+
 # --------------- Endpoints Administración de Conversaciones ------------------
 
 @app.post("/admin/conversations/", status_code=201)

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './chat-interface.css';
 import ChatSidebar from '../chat-sidebar/chat-sidebar';
 import ChatNoConversation from '../chat-no-conversation/chat-no-conversation';
-import { listConversations, sendMessage, deleteConversation, createConversation, listUserChatbots } from '../../../lib/api';
+import { listConversations, sendMessage, createConversation, listUserChatbots, deleteConversation } from '../../../lib/api';
 import type { ChatbotInfo, ChatResponseDTO } from '../../../lib/api';
 
 interface ChatMessage {
@@ -27,7 +27,7 @@ interface ChatInterfaceProps {
   userEmail: string;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail: _userEmail }) => {
   // Estados principales
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -110,7 +110,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
   };
 
   // Manejar selección de conversación
-  const handleSelectConversation = (conversationId: string) => {
+  const handleSelectConversation = async (conversationId: string) => {
     setActiveConversationId(conversationId);
     
     // Buscar la conversación seleccionada y su chatbot asociado
@@ -169,38 +169,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
     }
   };
 
-  // Eliminar conversación
+  // Eliminar conversación (con confirmación previa desde modal)
   const handleDeleteConversation = async (conversationId: string) => {
     try {
+      // Eliminar en el backend
       await deleteConversation(Number(conversationId));
       
+      // Actualizar estado local inmediatamente
       setConversations(prev => prev.filter(c => c.id !== conversationId));
+      
+      // Limpiar mensajes de la conversación eliminada
       setMessagesByConv(prev => {
-        const newMessages = { ...prev };
-        delete newMessages[conversationId];
-        return newMessages;
+        const updated = { ...prev };
+        delete updated[conversationId];
+        return updated;
       });
-
+      
+      // Si la conversación eliminada era la activa, limpiar selección
       if (activeConversationId === conversationId) {
-        const remaining = conversations.filter(c => c.id !== conversationId);
-        setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
+        setActiveConversationId(null);
+        setSelectedChatbot(null);
       }
-    } catch (error) {
+      
+      return true;
+    } catch (error: any) {
       console.error('Error deleting conversation:', error);
-      alert('No se pudo eliminar la conversación');
-    }
-  };
-
-  // Renombrar conversación
-  const handleRenameConversation = async (conversationId: string, newTitle: string) => {
-    try {
-      // TODO: Implementar endpoint de rename en el backend
-      setConversations(prev => prev.map(c => 
-        c.id === conversationId ? { ...c, title: newTitle } : c
-      ));
-    } catch (error) {
-      console.error('Error renaming conversation:', error);
-      alert('No se pudo renombrar la conversación');
+      
+      // Si el error es 404, la conversación ya no existe
+      if (error?.status === 404) {
+        // Limpiar estado local de todas formas
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        setMessagesByConv(prev => {
+          const updated = { ...prev };
+          delete updated[conversationId];
+          return updated;
+        });
+        if (activeConversationId === conversationId) {
+          setActiveConversationId(null);
+          setSelectedChatbot(null);
+        }
+        return true;
+      }
+      
+      throw error; // Re-lanzar otros errores
     }
   };
 
@@ -246,8 +257,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
         const updated = prev.map(c => (c.id === convId ? { ...c, updatedAt: new Date() } : c));
         return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      
       const errMsg: ChatMessage = {
         id: Date.now() + 1,
         text: 'Error al obtener respuesta del asistente.',
@@ -290,14 +302,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
 
   return (
     <div className="chat-interface">
-      {/* Sidebar */}
+      {/* Sidebar - Vista de USUARIO con función de eliminar conversaciones */}
       <ChatSidebar
         conversations={sortedConversations}
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        onRenameConversation={handleRenameConversation}
+        onDeleteConversation={handleDeleteConversation} // Ahora los usuarios SÍ pueden eliminar sus conversaciones
+        isAdminView={false} // Sigue siendo false (no tienen rename ni otras funciones admin)
       />
 
       {/* Área principal */}
@@ -354,7 +366,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userEmail }) => {
                         </div>
                       )}
                       <div className="message-timestamp">
-                        {msg.timestamp.toLocaleTimeString()}
+                        {msg.timestamp.toLocaleTimeString('es-CL', { 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          hour12: false 
+                        })}
                       </div>
                     </div>
                   </div>

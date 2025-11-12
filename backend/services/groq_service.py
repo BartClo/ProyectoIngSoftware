@@ -67,32 +67,49 @@ class GroqService:
         
         # Formatear contexto
         context_text = ""
+        sources_list = []
+        
         if context_chunks:
-            context_text = "INFORMACIÓN RELEVANTE ENCONTRADA:\n\n"
+            context_text = "DOCUMENTOS DISPONIBLES:\n\n"
             for i, chunk in enumerate(context_chunks, 1):
                 metadata = chunk.get('metadata', {})
                 text = metadata.get('text', '')
                 source = metadata.get('source', 'Documento')
                 page = metadata.get('page', 'N/A')
                 
+                if source not in sources_list:
+                    sources_list.append(source)
+                
                 context_text += f"[Fuente {i}] {source} (Página {page}):\n{text}\n\n"
         
-        prompt = f"""Eres {chatbot_name}, un asistente especializado y confiable. Tu objetivo es proporcionar respuestas precisas y útiles basadas en la información disponible.
+        # Lista de archivos para el prompt
+        files_text = ", ".join(sources_list) if sources_list else "documentos cargados"
+        
+        if context_chunks:
+            # Cuando hay contexto relevante: modo RESTRICTIVO
+            prompt = f"""Eres {chatbot_name}, un asistente especializado que SOLO responde preguntas basándote en los documentos proporcionados.
+
+ARCHIVOS DISPONIBLES: {files_text}
 
 {context_text}
 
-PREGUNTA DEL USUARIO: {user_question}
-
 INSTRUCCIONES:
-1. Responde de manera clara y precisa basándote PRINCIPALMENTE en la información relevante proporcionada arriba
-2. Si la información relevante no es suficiente para responder completamente, indícalo claramente
-3. Estructura tu respuesta de forma organizada y fácil de leer
-4. Cita las fuentes cuando sea apropiado (ej: "Según la fuente 1...")
-5. Si no hay información relevante, responde con tu conocimiento general pero indica que es información general
-6. Mantén un tono profesional y amigable
-7. Si la pregunta no está relacionada con el contexto, responde de manera general pero educativa
+- Responde SOLO basándote en la información de los documentos de arriba
+- Si la pregunta NO está relacionada con los documentos, di: "Lo siento, solo puedo responder sobre {files_text}"
+- Cita las fuentes cuando sea relevante (ej: "Según {files_text.split(', ')[0]}...")
+- NO inventes información que no esté en los documentos
+- Sé claro, preciso y profesional
 
-RESPUESTA:"""
+Pregunta: {user_question}"""
+        else:
+            # Sin contexto relevante: indicar que no hay información
+            prompt = f"""Eres {chatbot_name}, un asistente especializado con documentos específicos.
+
+No encontraste información relevante para responder la pregunta del usuario.
+
+Di: "Lo siento, no encontré información sobre eso en los documentos. ¿Podrías hacer una pregunta más específica sobre el contenido de los archivos?"
+
+Pregunta: {user_question}"""
 
         return prompt
     
@@ -101,7 +118,8 @@ RESPUESTA:"""
         user_question: str,
         context_chunks: List[Dict[str, Any]] = None,
         chatbot_name: str = "Asistente",
-        conversation_history: List[Dict[str, str]] = None
+        conversation_history: List[Dict[str, str]] = None,
+        has_documents: bool = None  # Nuevo: indica si el chatbot tiene documentos cargados
     ) -> Dict[str, Any]:
         """
         Genera una respuesta usando Groq/Llama3 con contexto RAG
@@ -111,21 +129,40 @@ RESPUESTA:"""
             context_chunks: Chunks de contexto relevante de Pinecone
             chatbot_name: Nombre del chatbot personalizado
             conversation_history: Historial de conversación (opcional)
+            has_documents: Si el chatbot tiene documentos cargados
             
         Returns:
             Dict con la respuesta y metadatos
         """
         try:
+            # Determinar si hay documentos
+            has_docs = has_documents if has_documents is not None else bool(context_chunks)
+            
             # Crear prompt con contexto RAG
             if context_chunks:
                 prompt = self.create_rag_prompt(user_question, context_chunks, chatbot_name)
+            elif has_docs:
+                # ✅ Hay documentos pero no se encontró contexto suficientemente relevante
+                prompt = f"""Eres {chatbot_name}, un asistente especializado.
+
+Tienes documentos cargados pero la pregunta es muy general o no encontraste suficiente información específica.
+
+Si el usuario pregunta sobre un documento o archivo en general (ej: "qué contiene clase 4", "de qué trata"), responde:
+"Para poder ayudarte mejor con ese archivo, ¿podrías especificar qué aspecto te interesa? Por ejemplo: temas principales, conceptos clave, definiciones específicas, etc."
+
+Si pregunta algo específico que no encontraste, responde:
+"No encontré información específica sobre eso. ¿Podrías reformular tu pregunta o ser más específico?"
+
+Mantén un tono profesional y competente.
+
+Pregunta: {user_question}"""
             else:
-                # Fallback sin contexto
-                prompt = f"""Eres {chatbot_name}, un asistente útil y confiable.
+                # Fallback sin contexto ni documentos
+                prompt = f"""Eres {chatbot_name}, un asistente útil.
 
-PREGUNTA: {user_question}
+Pregunta: {user_question}
 
-Responde de manera clara, precisa y educativa. Si no tienes información específica sobre el tema, indícalo claramente pero proporciona información general útil que puedas."""
+Responde de manera clara y educativa."""
 
             # Preparar mensajes para el chat
             messages = [
