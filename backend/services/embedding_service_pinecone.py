@@ -23,9 +23,9 @@ class EmbeddingServicePinecone:
         
         self.pc = Pinecone(api_key=api_key)
         
-        # Usar el modelo de Pinecone (gratis, no consume RAM local)
-        self.model_name = "multilingual-e5-large"
-        self.dimension = 384  # Dimensión del modelo
+        # Usar modelo de Pinecone que genera 384 dimensiones
+        self.model_name = "multilingual-e5-small"  # 384 dimensiones
+        self.dimension = 384
         
         logger.info(f"EmbeddingServicePinecone inicializado con modelo: {self.model_name}")
     
