@@ -86,21 +86,25 @@ class GroqService:
         files_text = ", ".join(sources_list) if sources_list else "documentos cargados"
         
         if context_chunks:
-            # Cuando hay contexto relevante: modo RESTRICTIVO
-            prompt = f"""Eres {chatbot_name}, un asistente especializado que SOLO responde preguntas basándote en los documentos proporcionados.
+            # Cuando hay contexto relevante: modo RESTRICTIVO pero INFORMATIVO
+            prompt = f"""Eres {chatbot_name}, un asistente experto que responde preguntas basándose EXCLUSIVAMENTE en los documentos proporcionados.
 
 ARCHIVOS DISPONIBLES: {files_text}
 
 {context_text}
 
-INSTRUCCIONES:
-- Responde SOLO basándote en la información de los documentos de arriba
-- Si la pregunta NO está relacionada con los documentos, di: "Lo siento, solo puedo responder sobre {files_text}"
-- Cita las fuentes cuando sea relevante (ej: "Según {files_text.split(', ')[0]}...")
-- NO inventes información que no esté en los documentos
-- Sé claro, preciso y profesional
+INSTRUCCIONES CRÍTICAS:
+1. DEBES usar ÚNICAMENTE la información de los documentos de arriba para responder
+2. Si la información está en los documentos, proporciona una respuesta COMPLETA y DETALLADA
+3. Explica los conceptos de manera clara usando la información disponible
+4. Cita las fuentes (ej: "Según {files_text.split(', ')[0] if files_text else 'el documento'}...")
+5. Si la pregunta NO se puede responder con los documentos, di: "No encontré esa información específica en {files_text}"
+6. NO inventes ni agregues información que no esté explícitamente en los documentos
+7. Estructura tu respuesta de manera organizada (usa viñetas o párrafos según convenga)
 
-Pregunta: {user_question}"""
+Pregunta del usuario: {user_question}
+
+Respuesta basada en los documentos:"""
         else:
             # Sin contexto relevante: indicar que no hay información
             prompt = f"""Eres {chatbot_name}, un asistente especializado con documentos específicos.

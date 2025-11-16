@@ -160,12 +160,19 @@ async def send_message_with_rag(
                     namespace=f"chatbot_{chatbot.id}"
                 )
                 
-                # Filtrar resultados por score mínimo (reducido para preguntas generales)
-                min_score = 0.3  # ✅ Reducido a 0.3 para preguntas generales sobre archivos
+                # Filtrar resultados por score mínimo (reducido para captar más contexto)
+                min_score = 0.25  # ✅ Reducido a 0.25 para captar preguntas generales
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
                 ]
+                
+                # Debug: mostrar scores de resultados
+                if search_results:
+                    print(f"🔍 Búsqueda RAG para: '{user_text}'")
+                    for i, result in enumerate(search_results[:3]):
+                        print(f"   Resultado {i+1}: score={result.get('score', 0):.3f}, fuente={result.get('metadata', {}).get('source', 'N/A')}")
+                    print(f"   ✅ {len(context_chunks)} chunks pasaron el umbral de {min_score}")
                 
         except Exception as e:
             print(f"Error en búsqueda RAG: {str(e)}")
@@ -450,11 +457,18 @@ async def send_message_to_conversation(
                 )
                 
                 # Filtrar por score mínimo (reducido para captar más contexto)
-                min_score = 0.3  # ✅ Reducido a 0.3 para preguntas generales sobre archivos
+                min_score = 0.25  # ✅ Reducido a 0.25 para captar preguntas generales
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
                 ]
+                
+                # Debug: mostrar scores de resultados
+                if search_results:
+                    print(f"🔍 Búsqueda RAG (conversación {conversation_id}): '{user_text}'")
+                    for i, result in enumerate(search_results[:3]):
+                        print(f"   Resultado {i+1}: score={result.get('score', 0):.3f}, fuente={result.get('metadata', {}).get('source', 'N/A')}")
+                    print(f"   ✅ {len(context_chunks)} chunks pasaron el umbral de {min_score}")
                 
         except Exception as e:
             print(f"Error en RAG para conversación: {str(e)}")
