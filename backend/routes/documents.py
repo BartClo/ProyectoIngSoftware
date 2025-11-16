@@ -13,7 +13,7 @@ from auth import get_current_user
 from main import get_current_user
 from services.pinecone_service import pinecone_service
 from services.document_processor import document_processor
-from services.embedding_service import embedding_service
+from services.embedding_service_pinecone import embedding_service
 
 router = APIRouter(prefix="/api/chatbots/{chatbot_id}/documents", tags=["Documents"])
 

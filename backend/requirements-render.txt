@@ -1,0 +1,32 @@
+# ============================================
+# RENDER.COM OPTIMIZED - MINIMAL MEMORY FOOTPRINT
+# ============================================
+
+# CORE - FastAPI y Database
+fastapi==0.104.1
+uvicorn==0.24.0
+python-dotenv==1.0.0
+pydantic==2.4.2
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.7
+
+# Auth (sin bcrypt pesado)
+python-jose==3.3.0
+passlib==1.7.4
+
+# Groq AI (ligero)
+groq==0.9.0
+
+# Pinecone (sin modelos locales)
+pinecone==5.0.0
+
+# Procesamiento de documentos (ligero)
+pypdf==3.17.4
+python-docx==0.8.11
+
+# Utilidades básicas
+requests==2.31.0
+python-multipart==0.0.6
+aiofiles==23.2.0

@@ -17,10 +17,7 @@ from models import (
 from auth import get_current_user
 from services.pinecone_service import pinecone_service
 from services.groq_service import groq_service  # Groq - ultrarrápido y confiable
-# from services.gemini_service import gemini_service  # Archivado - problemas con API Key
-# from services.ollama_service import ollama_service  # Archivado - problemas de conectividad
-# from services.gpt4all_service import gpt4all_service  # Archivado - problemas de memoria
-from services.embedding_service import embedding_service
+from services.embedding_service_pinecone import embedding_service
 
 router = APIRouter(prefix="/api/chat", tags=["Chat with RAG"])
 
@@ -192,10 +189,6 @@ async def send_message_with_rag(
             chatbot_name=chatbot_name,
             has_documents=has_documents
         )
-        
-        # Códigos archivados:
-        # response_data = await gemini_service.generate_response(...)  # Problemas API Key
-        # response_data = await gpt4all_service.generate_response(...)  # Problemas memoria
         
         if response_data.get("success"):
             ai_response = response_data.get("response", "")
@@ -497,10 +490,6 @@ async def send_message_to_conversation(
             conversation_history=conversation_history,
             has_documents=has_documents
         )
-        
-        # Códigos archivados:
-        # response_data = await gemini_service.generate_response(...)  # Problemas API Key
-        # response_data = await gpt4all_service.generate_response(...)  # Problemas memoria
         
         if response_data.get("success"):
             ai_response = response_data.get("response", "")

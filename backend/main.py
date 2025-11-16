@@ -151,10 +151,10 @@ async def chatbot_info():
     return {
         "mode": "rag_enabled",
         "rag_enabled": True,
-        "description": "Chatbot con RAG usando Pinecone, Groq/Llama3 y Sentence Transformers",
+        "description": "Chatbot con RAG usando Pinecone Inference API, Groq/Llama3",
         "model": "llama-3.1-8b-instant",
         "ai_provider": "Groq",
-        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "embedding_model": "multilingual-e5-large",
         "vector_store": "pinecone",
         "features": {
             "custom_chatbots": True,
