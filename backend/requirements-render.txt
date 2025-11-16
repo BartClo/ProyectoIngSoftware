@@ -7,14 +7,17 @@ fastapi==0.115.0
 uvicorn==0.32.0
 python-dotenv==1.0.0
 pydantic==2.10.0
+pydantic-core==2.27.0
 
 # Database
 sqlalchemy==2.0.35
 psycopg2-binary==2.9.9
 
-# Auth (sin bcrypt pesado)
-python-jose[cryptography]==3.3.0
+# Auth - sin extras para evitar conflictos de hashes
+python-jose==3.3.0
+cryptography==42.0.5
 passlib==1.7.4
+bcrypt==4.1.2
 
 # Groq AI (ligero)
 groq==0.9.0

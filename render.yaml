@@ -13,7 +13,7 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: pip install --upgrade pip && pip install --no-cache-dir --force-reinstall -r requirements-render.txt
+    buildCommand: python -m pip install --upgrade pip setuptools wheel && pip install --no-cache-dir --force-reinstall --no-deps -r requirements-render.txt && pip install --no-cache-dir -r requirements-render.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 30
     
     # Environment Variables
