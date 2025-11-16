@@ -93,18 +93,18 @@ ARCHIVOS DISPONIBLES: {files_text}
 
 {context_text}
 
-INSTRUCCIONES CRÍTICAS:
-1. DEBES usar ÚNICAMENTE la información de los documentos de arriba para responder
+INSTRUCCIONES CRÍTICAS (DEBES SEGUIRLAS ESTRICTAMENTE):
+1. **PROHIBIDO INVENTAR**: SOLO usa información que esté EXPLÍCITAMENTE en los documentos de arriba
 2. Si la información está en los documentos, proporciona una respuesta COMPLETA y DETALLADA
-3. Explica los conceptos de manera clara usando la información disponible
-4. Cita las fuentes (ej: "Según {files_text.split(', ')[0] if files_text else 'el documento'}...")
-5. Si la pregunta NO se puede responder con los documentos, di: "No encontré esa información específica en {files_text}"
-6. NO inventes ni agregues información que no esté explícitamente en los documentos
+3. **IMPORTANTE**: Si la pregunta NO se puede responder con los documentos, responde ÚNICAMENTE: "Lo siento, no encontré información sobre eso en {files_text}. Solo puedo responder preguntas sobre el contenido de estos documentos."
+4. **NUNCA** proporciones información general o de tu conocimiento previo
+5. **NUNCA** digas "puedo proporcionarte información general" - SOLO usa los documentos
+6. Cita las fuentes cuando sea relevante (ej: "Según {files_text.split(', ')[0] if files_text else 'el documento'}...")
 7. Estructura tu respuesta de manera organizada (usa viñetas o párrafos según convenga)
 
 Pregunta del usuario: {user_question}
 
-Respuesta basada en los documentos:"""
+Respuesta basada EXCLUSIVAMENTE en los documentos (sin inventar nada):"""
         else:
             # Sin contexto relevante: indicar que no hay información
             prompt = f"""Eres {chatbot_name}, un asistente especializado con documentos específicos.
@@ -147,19 +147,19 @@ Pregunta: {user_question}"""
                 prompt = self.create_rag_prompt(user_question, context_chunks, chatbot_name)
             elif has_docs:
                 # ✅ Hay documentos pero no se encontró contexto suficientemente relevante
-                prompt = f"""Eres {chatbot_name}, un asistente especializado.
+                prompt = f"""Eres {chatbot_name}, un asistente especializado que SOLO responde sobre documentos específicos.
 
-Tienes documentos cargados pero la pregunta es muy general o no encontraste suficiente información específica.
+**SITUACIÓN**: Tienes documentos cargados pero NO encontraste información relevante para esta pregunta.
 
-Si el usuario pregunta sobre un documento o archivo en general (ej: "qué contiene clase 4", "de qué trata"), responde:
-"Para poder ayudarte mejor con ese archivo, ¿podrías especificar qué aspecto te interesa? Por ejemplo: temas principales, conceptos clave, definiciones específicas, etc."
+**INSTRUCCIONES ESTRICTAS**:
+- Di ÚNICAMENTE: "Lo siento, no encontré información sobre eso en los documentos. Solo puedo responder preguntas sobre el contenido de los archivos que tengo cargados."
+- **PROHIBIDO** proporcionar información general o de tu conocimiento previo
+- **PROHIBIDO** decir "puedo proporcionarte información general"
+- **PROHIBIDO** inventar o suponer información
 
-Si pregunta algo específico que no encontraste, responde:
-"No encontré información específica sobre eso. ¿Podrías reformular tu pregunta o ser más específico?"
+Pregunta: {user_question}
 
-Mantén un tono profesional y competente.
-
-Pregunta: {user_question}"""
+Respuesta (siguiendo las instrucciones estrictas):"""
             else:
                 # Fallback sin contexto ni documentos
                 prompt = f"""Eres {chatbot_name}, un asistente útil.
@@ -172,7 +172,7 @@ Responde de manera clara y educativa."""
             messages = [
                 {
                     "role": "system",
-                    "content": "Eres un asistente inteligente y útil. Responde de manera precisa y organizada."
+                    "content": "Eres un asistente especializado RAG. SOLO respondes basándote en documentos proporcionados. PROHIBIDO inventar información o usar conocimiento previo cuando trabajas con documentos. Si no tienes la información en los documentos, di claramente que no la encontraste."
                 }
             ]
 
