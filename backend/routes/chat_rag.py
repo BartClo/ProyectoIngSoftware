@@ -149,7 +149,7 @@ async def send_message_with_rag(
         
         try:
             # Generar embedding de la pregunta del usuario
-            query_embedding = await embedding_service.generate_single_embedding(user_text)
+            query_embedding = await embedding_service.generate_query_embedding(user_text)
             
             if query_embedding:
                 # Buscar contexto relevante en Pinecone
@@ -270,7 +270,7 @@ async def create_conversation_with_chatbot(
                 # Intentar obtener un resumen del contenido
                 try:
                     # Hacer una búsqueda general para obtener contenido de los documentos
-                    sample_embedding = await embedding_service.generate_single_embedding(
+                    sample_embedding = await embedding_service.generate_query_embedding(
                         "resumen contenido principal documentos"
                     )
                     
@@ -445,7 +445,7 @@ async def send_message_to_conversation(
             chatbot_name = chatbot.title
             
             # Generar embedding de la pregunta
-            query_embedding = await embedding_service.generate_single_embedding(user_text)
+            query_embedding = await embedding_service.generate_query_embedding(user_text)
             
             if query_embedding:
                 # Buscar contexto en Pinecone
