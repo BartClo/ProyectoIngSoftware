@@ -51,13 +51,16 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",  # frontend local (Vite/React)
     "http://localhost:3000",  # frontend local alternativo
-    "https://*.vercel.app",   # Vercel deployments
-    "https://chatbot-uss-frontend.vercel.app",  # Dominio específico de Vercel
+    "https://chatbot-rag-uss.vercel.app",  # Tu dominio específico de Vercel
+    "https://chatbot-uss-frontend.vercel.app",  # Dominio alternativo de Vercel
 ]
 
-# Para producción, permitir dominios de Vercel
+# Para producción, permitir todos los orígenes si está configurado
 if os.getenv("ENVIRONMENT") == "production":
-    origins.append("*")
+    # Agregar el origen específico del frontend si está en variable de entorno
+    frontend_url = os.getenv("FRONTEND_URL")
+    if frontend_url and frontend_url not in origins:
+        origins.append(frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
