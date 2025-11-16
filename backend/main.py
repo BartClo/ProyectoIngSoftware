@@ -16,9 +16,13 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
+import logging
 
 # Cargar variables de entorno
 load_dotenv()
+
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 # Importaciones de base de datos y modelos
 from database import Base, engine, get_db
@@ -55,17 +59,20 @@ origins = [
     "https://chatbot-uss-frontend.vercel.app",  # Dominio alternativo de Vercel
 ]
 
-# Para producción, permitir todos los orígenes si está configurado
+# Para producción, permitir el origen del frontend configurado
 if os.getenv("ENVIRONMENT") == "production":
     # Agregar el origen específico del frontend si está en variable de entorno
     frontend_url = os.getenv("FRONTEND_URL")
     if frontend_url and frontend_url not in origins:
         origins.append(frontend_url)
+    # Temporalmente permitir todos los orígenes en producción para debugging
+    logger.info(f"CORS configurado para orígenes: {origins}")
+    origins = ["*"]  # Permitir todos temporalmente
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=True if origins != ["*"] else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
