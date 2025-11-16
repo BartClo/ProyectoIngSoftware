@@ -160,8 +160,9 @@ async def send_message_with_rag(
                     namespace=f"chatbot_{chatbot.id}"
                 )
                 
-                # Filtrar resultados por score mínimo (reducido para captar más contexto)
-                min_score = 0.25  # ✅ Reducido a 0.25 para captar preguntas generales
+                # Filtrar resultados por score mínimo
+                # Usar umbral más alto para evitar falsos positivos
+                min_score = 0.70  # ✅ Score alto para asegurar relevancia real
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
@@ -171,8 +172,13 @@ async def send_message_with_rag(
                 if search_results:
                     print(f"🔍 Búsqueda RAG para: '{user_text}'")
                     for i, result in enumerate(search_results[:3]):
-                        print(f"   Resultado {i+1}: score={result.get('score', 0):.3f}, fuente={result.get('metadata', {}).get('source', 'N/A')}")
+                        score = result.get('score', 0)
+                        source = result.get('metadata', {}).get('source', 'N/A')
+                        print(f"   Resultado {i+1}: score={score:.3f}, fuente={source}")
                     print(f"   ✅ {len(context_chunks)} chunks pasaron el umbral de {min_score}")
+                    if len(context_chunks) == 0 and search_results:
+                        max_score = max(r.get('score', 0) for r in search_results)
+                        print(f"   ⚠️ Score más alto ({max_score:.3f}) está por debajo del umbral - pregunta probablemente no relacionada")
                 
         except Exception as e:
             print(f"Error en búsqueda RAG: {str(e)}")
@@ -456,8 +462,9 @@ async def send_message_to_conversation(
                     namespace=f"chatbot_{chatbot.id}"
                 )
                 
-                # Filtrar por score mínimo (reducido para captar más contexto)
-                min_score = 0.25  # ✅ Reducido a 0.25 para captar preguntas generales
+                # Filtrar por score mínimo
+                # Usar umbral más alto para evitar falsos positivos
+                min_score = 0.70  # ✅ Score alto para asegurar relevancia real
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
@@ -467,8 +474,13 @@ async def send_message_to_conversation(
                 if search_results:
                     print(f"🔍 Búsqueda RAG (conversación {conversation_id}): '{user_text}'")
                     for i, result in enumerate(search_results[:3]):
-                        print(f"   Resultado {i+1}: score={result.get('score', 0):.3f}, fuente={result.get('metadata', {}).get('source', 'N/A')}")
+                        score = result.get('score', 0)
+                        source = result.get('metadata', {}).get('source', 'N/A')
+                        print(f"   Resultado {i+1}: score={score:.3f}, fuente={source}")
                     print(f"   ✅ {len(context_chunks)} chunks pasaron el umbral de {min_score}")
+                    if len(context_chunks) == 0 and search_results:
+                        max_score = max(r.get('score', 0) for r in search_results)
+                        print(f"   ⚠️ Score más alto ({max_score:.3f}) está por debajo del umbral - pregunta probablemente no relacionada")
                 
         except Exception as e:
             print(f"Error en RAG para conversación: {str(e)}")
