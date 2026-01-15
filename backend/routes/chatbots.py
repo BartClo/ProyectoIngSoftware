@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path, Form, UploadFile, File
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc, func, delete
 from typing import Annotated, List, Optional
 from datetime import datetime
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ import logging
 from pathlib import Path as FilePath
 
 from database import get_db
-from models import User as UserModel, CustomChatbot, ChatbotAccess, AccessLevel
+from models import User as UserModel, CustomChatbot, ChatbotAccess, AccessLevel, ChatbotDocument
 from auth import get_current_user
 from services.pinecone_service import pinecone_service
 
@@ -55,7 +56,7 @@ class UserAccessOut(BaseModel):
 async def create_chatbot(
     payload: ChatbotCreate,
     current_user: Annotated[UserModel, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Crear un nuevo chatbot personalizado"""
     chatbot = None
@@ -82,8 +83,8 @@ async def create_chatbot(
         )
         
         db.add(chatbot)
-        db.commit()
-        db.refresh(chatbot)
+        await db.commit()
+        await db.refresh(chatbot)
         
         # Crear directorio de uploads para el chatbot
         upload_dir = FilePath("uploads") / f"chatbot_{chatbot.id}"
@@ -107,12 +108,12 @@ async def create_chatbot(
     except HTTPException:
         # Re-lanzar HTTPExceptions sin modificar
         if chatbot:
-            db.rollback()
+            await db.rollback()
         raise
     except Exception as e:
         logger.error(f"Error inesperado creando chatbot: {str(e)}")
         if chatbot:
-            db.rollback()
+            await db.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"Error creando chatbot: {str(e)}"
@@ -122,41 +123,48 @@ async def create_chatbot(
 @router.get("/", response_model=List[ChatbotOut])
 async def list_user_chatbots(
     current_user: Annotated[UserModel, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Listar chatbots accesibles para el usuario actual"""
     
     # Chatbots creados por el usuario
-    owned_chatbots = db.query(CustomChatbot).filter(
+    result_owned = await db.execute(select(CustomChatbot).where(
         CustomChatbot.created_by == current_user.id
-    ).all()
+    ))
+    owned_chatbots = result_owned.scalars().all()
     
     # Chatbots con acceso otorgado
-    access_records = db.query(ChatbotAccess).filter(
+    result_access = await db.execute(select(ChatbotAccess).where(
         ChatbotAccess.user_id == current_user.id
-    ).all()
+    ))
+    access_records = result_access.scalars().all()
     
     accessible_ids = [access.chatbot_id for access in access_records]
-    accessible_chatbots = db.query(CustomChatbot).filter(
-        CustomChatbot.id.in_(accessible_ids),
-        CustomChatbot.is_active == True
-    ).all() if accessible_ids else []
+    accessible_chatbots = []
+    if accessible_ids:
+        result_acc = await db.execute(select(CustomChatbot).where(
+            CustomChatbot.id.in_(accessible_ids),
+            CustomChatbot.is_active == True
+        ))
+        accessible_chatbots = result_acc.scalars().all()
     
     # Combinar y eliminar duplicados
-    all_chatbots = {cb.id: cb for cb in owned_chatbots + accessible_chatbots}.values()
+    all_chatbots = {cb.id: cb for cb in list(owned_chatbots) + list(accessible_chatbots)}.values()
     
     # Agregar conteos
     result = []
     for chatbot in all_chatbots:
         # Contar documentos
-        docs_count = db.query(ChatbotDocument).filter(
+        doc_count_res = await db.execute(select(func.count()).select_from(ChatbotDocument).where(
             ChatbotDocument.chatbot_id == chatbot.id
-        ).count()
+        ))
+        docs_count = doc_count_res.scalar()
         
         # Contar usuarios con acceso
-        users_count = db.query(ChatbotAccess).filter(
+        user_count_res = await db.execute(select(func.count()).select_from(ChatbotAccess).where(
             ChatbotAccess.chatbot_id == chatbot.id
-        ).count()
+        ))
+        users_count = user_count_res.scalar()
         
         result.append(ChatbotOut(
             id=chatbot.id,
@@ -178,37 +186,43 @@ async def list_user_chatbots(
 async def get_chatbot(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Obtener detalles de un chatbot específico"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
     
     # Verificar acceso
-    has_access = (
-        chatbot.created_by == current_user.id or
-        db.query(ChatbotAccess).filter(
+    has_access = False
+    if chatbot.created_by == current_user.id:
+        has_access = True
+    else:
+        res_access = await db.execute(select(ChatbotAccess).where(
             ChatbotAccess.chatbot_id == chatbot_id,
             ChatbotAccess.user_id == current_user.id
-        ).first() is not None
-    )
+        ))
+        if res_access.scalar_one_or_none():
+            has_access = True
     
     if not has_access:
         raise HTTPException(status_code=403, detail="No tiene acceso a este chatbot")
     
     # Contar documentos y usuarios
-    docs_count = db.query(ChatbotDocument).filter(
+    doc_count_res = await db.execute(select(func.count()).select_from(ChatbotDocument).where(
         ChatbotDocument.chatbot_id == chatbot_id
-    ).count()
+    ))
+    docs_count = doc_count_res.scalar()
     
-    users_count = db.query(ChatbotAccess).filter(
+    users_count_res = await db.execute(select(func.count()).select_from(ChatbotAccess).where(
         ChatbotAccess.chatbot_id == chatbot_id
-    ).count()
+    ))
+    users_count = users_count_res.scalar()
     
     return ChatbotOut(
         id=chatbot.id,
@@ -229,26 +243,30 @@ async def update_chatbot(
     payload: ChatbotUpdate,
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Actualizar un chatbot (solo propietario o admin)"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
     
     # Verificar permisos (propietario o admin)
-    has_admin_access = (
-        chatbot.created_by == current_user.id or
-        db.query(ChatbotAccess).filter(
+    has_admin_access = False
+    if chatbot.created_by == current_user.id:
+        has_admin_access = True
+    else:
+        res_access = await db.execute(select(ChatbotAccess).where(
             ChatbotAccess.chatbot_id == chatbot_id,
             ChatbotAccess.user_id == current_user.id,
             ChatbotAccess.access_level == AccessLevel.ADMIN
-        ).first() is not None
-    )
+        ))
+        if res_access.scalar_one_or_none():
+            has_admin_access = True
     
     if not has_admin_access:
         raise HTTPException(status_code=403, detail="Sin permisos para editar este chatbot")
@@ -263,17 +281,19 @@ async def update_chatbot(
     
     chatbot.updated_at = datetime.utcnow()
     
-    db.commit()
-    db.refresh(chatbot)
+    await db.commit()
+    await db.refresh(chatbot)
     
     # Contar documentos y usuarios
-    docs_count = db.query(ChatbotDocument).filter(
+    doc_count_res = await db.execute(select(func.count()).select_from(ChatbotDocument).where(
         ChatbotDocument.chatbot_id == chatbot_id
-    ).count()
+    ))
+    docs_count = doc_count_res.scalar()
     
-    users_count = db.query(ChatbotAccess).filter(
+    users_count_res = await db.execute(select(func.count()).select_from(ChatbotAccess).where(
         ChatbotAccess.chatbot_id == chatbot_id
-    ).count()
+    ))
+    users_count = users_count_res.scalar()
     
     return ChatbotOut(
         id=chatbot.id,
@@ -293,13 +313,14 @@ async def update_chatbot(
 async def delete_chatbot(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Eliminar un chatbot (solo propietario)"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
@@ -315,9 +336,10 @@ async def delete_chatbot(
         
         # Verificar si existen conversaciones relacionadas antes de eliminar
         from models import Conversation
-        related_conversations = db.query(Conversation).filter(
+        result_conv = await db.execute(select(Conversation).where(
             Conversation.chatbot_id == chatbot_id
-        ).all()
+        ))
+        related_conversations = result_conv.scalars().all()
         
         if related_conversations:
             logger.info(f"Eliminando {len(related_conversations)} conversaciones relacionadas")
@@ -325,8 +347,8 @@ async def delete_chatbot(
                 conv.chatbot_id = None  # Desasociar en lugar de eliminar
         
         # Eliminar de base de datos (cascada eliminará documentos y accesos)
-        db.delete(chatbot)
-        db.commit()
+        await db.delete(chatbot)
+        await db.commit()
         logger.info(f"Chatbot {chatbot_id} eliminado de la base de datos")
         
         # Intentar eliminar índice de Pinecone (no crítico si falla)
@@ -346,7 +368,7 @@ async def delete_chatbot(
         
     except Exception as e:
         logger.error(f"Error eliminando chatbot {chatbot_id}: {str(e)}")
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"Error eliminando chatbot: {str(e)}"
@@ -358,26 +380,30 @@ async def grant_user_access(
     payload: UserAccessCreate,
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Otorgar acceso a usuarios (solo propietario o admin)"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
     
     # Verificar permisos
-    has_admin_access = (
-        chatbot.created_by == current_user.id or
-        db.query(ChatbotAccess).filter(
+    has_admin_access = False
+    if chatbot.created_by == current_user.id:
+        has_admin_access = True
+    else:
+        res_access = await db.execute(select(ChatbotAccess).where(
             ChatbotAccess.chatbot_id == chatbot_id,
             ChatbotAccess.user_id == current_user.id,
             ChatbotAccess.access_level == AccessLevel.ADMIN
-        ).first() is not None
-    )
+        ))
+        if res_access.scalar_one_or_none():
+            has_admin_access = True
     
     if not has_admin_access:
         raise HTTPException(status_code=403, detail="Sin permisos para gestionar accesos")
@@ -388,16 +414,18 @@ async def grant_user_access(
     for user_id in payload.user_ids:
         try:
             # Verificar que el usuario existe
-            user = db.query(UserModel).filter(UserModel.id == user_id).first()
+            res_user = await db.execute(select(UserModel).where(UserModel.id == user_id))
+            user = res_user.scalar_one_or_none()
             if not user:
                 errors.append(f"Usuario {user_id} no encontrado")
                 continue
             
             # Verificar si ya tiene acceso
-            existing_access = db.query(ChatbotAccess).filter(
+            res_exist = await db.execute(select(ChatbotAccess).where(
                 ChatbotAccess.chatbot_id == chatbot_id,
                 ChatbotAccess.user_id == user_id
-            ).first()
+            ))
+            existing_access = res_exist.scalar_one_or_none()
             
             if existing_access:
                 # Actualizar nivel de acceso
@@ -423,7 +451,7 @@ async def grant_user_access(
         except Exception as e:
             errors.append(f"Error con usuario {user_id}: {str(e)}")
     
-    db.commit()
+    await db.commit()
     
     return {
         "granted_users": granted_users,
@@ -435,37 +463,43 @@ async def grant_user_access(
 async def list_chatbot_users(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Listar usuarios con acceso al chatbot"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
     
     # Verificar acceso
-    has_access = (
-        chatbot.created_by == current_user.id or
-        db.query(ChatbotAccess).filter(
+    has_access = False
+    if chatbot.created_by == current_user.id:
+        has_access = True
+    else:
+        res_check = await db.execute(select(ChatbotAccess).where(
             ChatbotAccess.chatbot_id == chatbot_id,
             ChatbotAccess.user_id == current_user.id
-        ).first() is not None
-    )
-    
+        ))
+        if res_check.scalar_one_or_none():
+            has_access = True
+            
     if not has_access:
         raise HTTPException(status_code=403, detail="No tiene acceso a este chatbot")
     
     # Obtener lista de usuarios
-    access_records = db.query(ChatbotAccess).filter(
+    res_recs = await db.execute(select(ChatbotAccess).where(
         ChatbotAccess.chatbot_id == chatbot_id
-    ).all()
+    ))
+    access_records = res_recs.scalars().all()
     
     result = []
     for access in access_records:
-        user = db.query(UserModel).filter(UserModel.id == access.user_id).first()
+        res_u = await db.execute(select(UserModel).where(UserModel.id == access.user_id))
+        user = res_u.scalar_one_or_none()
         if user:
             result.append(UserAccessOut(
                 id=access.id,
@@ -484,27 +518,31 @@ async def revoke_user_access(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
     user_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Revocar acceso de un usuario (solo propietario o admin)"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
     
     # Verificar permisos
-    has_admin_access = (
-        chatbot.created_by == current_user.id or
-        db.query(ChatbotAccess).filter(
+    has_admin_access = False
+    if chatbot.created_by == current_user.id:
+        has_admin_access = True
+    else:
+        res_chk = await db.execute(select(ChatbotAccess).where(
             ChatbotAccess.chatbot_id == chatbot_id,
             ChatbotAccess.user_id == current_user.id,
             ChatbotAccess.access_level == AccessLevel.ADMIN
-        ).first() is not None
-    )
-    
+        ))
+        if res_chk.scalar_one_or_none():
+            has_admin_access = True
+            
     if not has_admin_access:
         raise HTTPException(status_code=403, detail="Sin permisos para gestionar accesos")
     
@@ -513,30 +551,29 @@ async def revoke_user_access(
         raise HTTPException(status_code=400, detail="No se puede revocar acceso al propietario")
     
     # Buscar y eliminar acceso
-    access_record = db.query(ChatbotAccess).filter(
+    res_acc = await db.execute(select(ChatbotAccess).where(
         ChatbotAccess.chatbot_id == chatbot_id,
         ChatbotAccess.user_id == user_id
-    ).first()
+    ))
+    access_record = res_acc.scalar_one_or_none()
     
     if access_record:
-        db.delete(access_record)
-        db.commit()
+        await db.delete(access_record)
+        await db.commit()
 
-
-# Importar modelos que faltan para los documentos
-from models import ChatbotDocument
 
 @router.post("/{chatbot_id}/recreate-index", status_code=200)
 async def recreate_pinecone_index(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Recrear el índice de Pinecone para un chatbot (solo propietario)"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
@@ -578,10 +615,19 @@ async def get_pinecone_status(
     try:
         from services.pinecone_service import pinecone_service
         
-        # Listar índices existentes
-        existing_indexes = pinecone_service.pc.list_indexes()
-        index_names = [index.name for index in existing_indexes]
-        
+        # TODO: Implementar un metodo get_all_indexes en el servicio para evitar acceso directo a pc
+        # Por ahora, usamos un try-catch si el metodo no existe
+        index_names = []
+        try:
+             # run_in_executor para no bloquear
+             import asyncio
+             loop = asyncio.get_running_loop()
+             # Acceso directo al cliente (sync) envuelto
+             indexes = await loop.run_in_executor(None, pinecone_service.pc.list_indexes)
+             index_names = [index.name for index in indexes]
+        except Exception:
+             index_names = ["(Error listando indices)"]
+
         return {
             "status": "connected",
             "existing_indexes": index_names,
@@ -603,42 +649,49 @@ async def get_pinecone_status(
 async def get_chatbot_stats(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Obtener estadísticas del chatbot"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
     
     # Verificar acceso
-    has_access = (
-        chatbot.created_by == current_user.id or
-        db.query(ChatbotAccess).filter(
+    has_access = False
+    if chatbot.created_by == current_user.id:
+        has_access = True
+    else:
+        res_chk = await db.execute(select(ChatbotAccess).where(
             ChatbotAccess.chatbot_id == chatbot_id,
             ChatbotAccess.user_id == current_user.id
-        ).first() is not None
-    )
-    
+        ))
+        if res_chk.scalar_one_or_none():
+            has_access = True
+            
     if not has_access:
         raise HTTPException(status_code=403, detail="No tiene acceso a este chatbot")
     
     # Obtener estadísticas
-    docs_count = db.query(ChatbotDocument).filter(
+    doc_total_res = await db.execute(select(func.count()).select_from(ChatbotDocument).where(
         ChatbotDocument.chatbot_id == chatbot_id
-    ).count()
+    ))
+    docs_count = doc_total_res.scalar()
     
-    processed_docs = db.query(ChatbotDocument).filter(
+    doc_proc_res = await db.execute(select(func.count()).select_from(ChatbotDocument).where(
         ChatbotDocument.chatbot_id == chatbot_id,
         ChatbotDocument.is_processed == True
-    ).count()
+    ))
+    processed_docs = doc_proc_res.scalar()
     
-    users_count = db.query(ChatbotAccess).filter(
+    user_cnt_res = await db.execute(select(func.count()).select_from(ChatbotAccess).where(
         ChatbotAccess.chatbot_id == chatbot_id
-    ).count()
+    ))
+    users_count = user_cnt_res.scalar()
     
     # Estadísticas de Pinecone
     pinecone_stats = await pinecone_service.get_index_stats(chatbot.pinecone_index_name)

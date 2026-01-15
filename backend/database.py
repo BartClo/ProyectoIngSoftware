@@ -1,6 +1,5 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 import os
 
 # Cargar variables de entorno desde .env si existe
@@ -15,14 +14,33 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL no está configurada en las variables de entorno")
 
-# Configurar engine con pool_pre_ping para reconexiones resilientes
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-Base = declarative_base()
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Asegurar que usamos el driver asyncpg
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif "postgresql+asyncpg" not in DATABASE_URL:
+    # Si es solo psql user:pass... asumir que falta el schema o driver
+    pass
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Configurar motor asíncrono
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    echo=False  # Set to True for SQL debugging
+)
+
+Base = declarative_base()
+
+# Factory de sesiones asíncronas
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False
+)
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()

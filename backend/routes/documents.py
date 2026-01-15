@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path, UploadFile, File, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc, func, delete
 from typing import Annotated, List, Optional
 from datetime import datetime
 from pydantic import BaseModel
@@ -7,10 +8,9 @@ import os
 import aiofiles
 from pathlib import Path as FilePath
 
-from database import get_db
+from database import get_db, AsyncSessionLocal
 from models import User as UserModel, CustomChatbot, ChatbotDocument, ChatbotAccess, AccessLevel
 from auth import get_current_user
-from main import get_current_user
 from services.pinecone_service import pinecone_service
 from services.document_processor import document_processor
 from services.embedding_service_pinecone import embedding_service
@@ -41,14 +41,15 @@ class ProcessingStatus(BaseModel):
 async def verify_chatbot_access(
     chatbot_id: int,
     user: UserModel,
-    db: Session,
+    db: AsyncSession,
     required_level: AccessLevel = AccessLevel.READ
 ) -> CustomChatbot:
     """Verifica acceso del usuario al chatbot"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado")
@@ -58,10 +59,11 @@ async def verify_chatbot_access(
         return chatbot
     
     # Verificar acceso otorgado
-    access_record = db.query(ChatbotAccess).filter(
+    res_access = await db.execute(select(ChatbotAccess).where(
         ChatbotAccess.chatbot_id == chatbot_id,
         ChatbotAccess.user_id == user.id
-    ).first()
+    ))
+    access_record = res_access.scalar_one_or_none()
     
     if not access_record:
         raise HTTPException(status_code=403, detail="No tiene acceso a este chatbot")
@@ -82,7 +84,7 @@ async def upload_documents(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
     files: List[UploadFile] = File(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Subir documentos al chatbot"""
     
@@ -135,7 +137,7 @@ async def upload_documents(
             )
             
             db.add(doc_record)
-            db.flush()  # Para obtener el ID
+            await db.flush()  # Para obtener el ID
             
             # Programar procesamiento en background
             background_tasks.add_task(
@@ -160,7 +162,7 @@ async def upload_documents(
         except Exception as e:
             errors.append(f"{file.filename}: Error subiendo archivo - {str(e)}")
     
-    db.commit()
+    await db.commit()
     
     if errors:
         # Si hay errores pero también archivos exitosos, devolver ambos
@@ -179,24 +181,26 @@ async def upload_documents(
 async def list_documents(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Listar documentos del chatbot"""
     
     # Verificar acceso de lectura
     chatbot = await verify_chatbot_access(chatbot_id, current_user, db, AccessLevel.READ)
     
-    documents = db.query(ChatbotDocument).filter(
+    result = await db.execute(select(ChatbotDocument).where(
         ChatbotDocument.chatbot_id == chatbot_id
-    ).order_by(ChatbotDocument.uploaded_at.desc()).all()
+    ).order_by(ChatbotDocument.uploaded_at.desc()))
+    documents = result.scalars().all()
     
-    result = []
+    result_list = []
     for doc in documents:
         uploader = None
         if doc.uploaded_by:
-            uploader = db.query(UserModel).filter(UserModel.id == doc.uploaded_by).first()
+            res_u = await db.execute(select(UserModel).where(UserModel.id == doc.uploaded_by))
+            uploader = res_u.scalar_one_or_none()
         
-        result.append(DocumentOut(
+        result_list.append(DocumentOut(
             id=doc.id,
             filename=doc.filename,
             original_filename=doc.original_filename,
@@ -209,25 +213,27 @@ async def list_documents(
             uploader_email=uploader.email if uploader else None
         ))
     
-    return result
+    return result_list
 
 
+@router.delete("/{document_id}", status_code=204)
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
     document_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Eliminar documento del chatbot"""
     
     # Verificar acceso de escritura
     chatbot = await verify_chatbot_access(chatbot_id, current_user, db, AccessLevel.WRITE)
     
-    document = db.query(ChatbotDocument).filter(
+    result = await db.execute(select(ChatbotDocument).where(
         ChatbotDocument.id == document_id,
         ChatbotDocument.chatbot_id == chatbot_id
-    ).first()
+    ))
+    document = result.scalar_one_or_none()
     
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
@@ -249,11 +255,11 @@ async def delete_document(
             file_path.unlink()
         
         # Eliminar de base de datos
-        db.delete(document)
-        db.commit()
+        await db.delete(document)
+        await db.commit()
         
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"Error eliminando documento: {str(e)}"
@@ -261,11 +267,12 @@ async def delete_document(
 
 
 @router.post("/process", status_code=202)
+@router.post("/process", status_code=202)
 async def process_all_documents(
     background_tasks: BackgroundTasks,
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Procesar todos los documentos pendientes del chatbot"""
     
@@ -273,10 +280,11 @@ async def process_all_documents(
     chatbot = await verify_chatbot_access(chatbot_id, current_user, db, AccessLevel.WRITE)
     
     # Obtener documentos no procesados
-    pending_docs = db.query(ChatbotDocument).filter(
+    result = await db.execute(select(ChatbotDocument).where(
         ChatbotDocument.chatbot_id == chatbot_id,
         ChatbotDocument.is_processed == False
-    ).all()
+    ))
+    pending_docs = result.scalars().all()
     
     if not pending_docs:
         return {"message": "No hay documentos pendientes de procesar"}
@@ -300,150 +308,151 @@ async def get_document_status(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     chatbot_id: int = Path(..., ge=1),
     document_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Obtener estado de procesamiento de un documento"""
     
     # Verificar acceso
     chatbot = await verify_chatbot_access(chatbot_id, current_user, db, AccessLevel.READ)
     
-    document = db.query(ChatbotDocument).filter(
+    result = await db.execute(select(ChatbotDocument).where(
         ChatbotDocument.id == document_id,
         ChatbotDocument.chatbot_id == chatbot_id
-    ).first()
+    ))
+    document = result.scalar_one_or_none()
     
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
     
     # Determinar estado
+    status_str = "pending"
     if document.is_processed:
-        status = "completed"
+        status_str = "completed"
     elif document.processed_at is not None:
-        status = "failed"  # Procesado pero sin éxito
-    else:
-        status = "pending"
+        status_str = "failed"
     
     return ProcessingStatus(
         document_id=document.id,
         filename=document.original_filename,
-        status=status,
+        status=status_str,
         chunks_created=document.chunks_count,
-        error_message=None  # TODO: agregar campo de error en el modelo
+        error_message=None
     )
 
 
 async def process_document_background(document_id: int, chatbot_id: int):
     """Procesar documento en background"""
-    from database import SessionLocal
     
-    db = SessionLocal()
-    try:
-        # Obtener documento y chatbot
-        document = db.query(ChatbotDocument).filter(
-            ChatbotDocument.id == document_id
-        ).first()
-        
-        if not document:
-            return
-        
-        chatbot = db.query(CustomChatbot).filter(
-            CustomChatbot.id == chatbot_id
-        ).first()
-        
-        if not chatbot:
-            return
-        
-        print(f"Procesando documento: {document.original_filename}")
-        
-        # Extraer texto del documento
-        extraction_result = await document_processor.extract_text_from_file(
-            document.file_path
-        )
-        
-        if not extraction_result.get("success"):
-            print(f"Error extrayendo texto: {extraction_result.get('error')}")
-            document.processed_at = datetime.utcnow()
-            db.commit()
-            return
-        
-        text_content = extraction_result.get("text", "")
-        if not text_content.strip():
-            print("Documento sin contenido de texto")
-            document.processed_at = datetime.utcnow()
-            db.commit()
-            return
-        
-        # Crear chunks del texto
-        metadata = {
-            "source": document.original_filename,
-            "chatbot_id": chatbot_id,
-            "document_id": document_id,
-            "file_type": document.file_type
-        }
-        
-        chunks = document_processor.create_text_chunks(text_content, metadata)
-        
-        if not chunks:
-            print("No se pudieron crear chunks del documento")
-            document.processed_at = datetime.utcnow()
-            db.commit()
-            return
-        
-        # Generar embeddings para cada chunk
-        chunk_texts = [chunk["text"] for chunk in chunks]
-        embeddings = await embedding_service.generate_embeddings(chunk_texts)
-        
-        if not embeddings or len(embeddings) != len(chunks):
-            print("Error generando embeddings")
-            document.processed_at = datetime.utcnow()
-            db.commit()
-            return
-        
-        # Preparar vectores para Pinecone
-        vectors = []
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-            vector_id = f"doc_{document_id}_chunk_{i}"
+    async with AsyncSessionLocal() as db:
+        try:
+            # Obtener documento y chatbot
+            result_doc = await db.execute(select(ChatbotDocument).where(
+                ChatbotDocument.id == document_id
+            ))
+            document = result_doc.scalar_one_or_none()
             
-            vector_metadata = {
-                **chunk["metadata"],
-                "text": chunk["text"],
-                "chunk_number": chunk["chunk_number"],
-                "char_count": chunk["char_count"],
-                "word_count": chunk["word_count"]
+            if not document:
+                return
+            
+            result_cb = await db.execute(select(CustomChatbot).where(
+                CustomChatbot.id == chatbot_id
+            ))
+            chatbot = result_cb.scalar_one_or_none()
+            
+            if not chatbot:
+                return
+            
+            print(f"Procesando documento: {document.original_filename}")
+            
+            # Extraer texto del documento
+            extraction_result = await document_processor.extract_text_from_file(
+                document.file_path
+            )
+            
+            if not extraction_result.get("success"):
+                print(f"Error extrayendo texto: {extraction_result.get('error')}")
+                document.processed_at = datetime.utcnow()
+                await db.commit()
+                return
+            
+            text_content = extraction_result.get("text", "")
+            if not text_content.strip():
+                print("Documento sin contenido de texto")
+                document.processed_at = datetime.utcnow()
+                await db.commit()
+                return
+            
+            # Crear chunks del texto
+            metadata = {
+                "source": document.original_filename,
+                "chatbot_id": chatbot_id,
+                "document_id": document_id,
+                "file_type": document.file_type
             }
             
-            vectors.append({
-                "id": vector_id,
-                "values": embedding,
-                "metadata": vector_metadata
-            })
-        
-        # Subir a Pinecone
-        success = await pinecone_service.upsert_vectors(
-            chatbot.pinecone_index_name,
-            vectors,
-            namespace=f"chatbot_{chatbot_id}"
-        )
-        
-        if success:
-            # Marcar como procesado
-            document.is_processed = True
-            document.chunks_count = len(chunks)
-            document.processed_at = datetime.utcnow()
+            chunks = document_processor.create_text_chunks(text_content, metadata)
             
-            print(f"Documento procesado exitosamente: {len(chunks)} chunks creados")
-        else:
-            print("Error subiendo vectores a Pinecone")
-            document.processed_at = datetime.utcnow()
-        
-        db.commit()
-        
-    except Exception as e:
-        print(f"Error procesando documento {document_id}: {str(e)}")
-        # Marcar como intentado (para evitar reprocesamiento infinito)
-        if document:
-            document.processed_at = datetime.utcnow()
-            db.commit()
-        
-    finally:
-        db.close()
+            if not chunks:
+                print("No se pudieron crear chunks del documento")
+                document.processed_at = datetime.utcnow()
+                await db.commit()
+                return
+            
+            # Generar embeddings para cada chunk
+            chunk_texts = [chunk["text"] for chunk in chunks]
+            embeddings = await embedding_service.generate_embeddings(chunk_texts)
+            
+            if not embeddings or len(embeddings) != len(chunks):
+                print("Error generando embeddings")
+                document.processed_at = datetime.utcnow()
+                await db.commit()
+                return
+            
+            # Preparar vectores para Pinecone
+            vectors = []
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                vector_id = f"doc_{document_id}_chunk_{i}"
+                
+                vector_metadata = {
+                    **chunk["metadata"],
+                    "text": chunk["text"],
+                    "chunk_number": chunk["chunk_number"],
+                    "char_count": chunk["char_count"],
+                    "word_count": chunk["word_count"]
+                }
+                
+                vectors.append({
+                    "id": vector_id,
+                    "values": embedding,
+                    "metadata": vector_metadata
+                })
+            
+            # Subir a Pinecone
+            success = await pinecone_service.upsert_vectors(
+                chatbot.pinecone_index_name,
+                vectors,
+                namespace=f"chatbot_{chatbot_id}"
+            )
+            
+            if success:
+                # Marcar como procesado
+                document.is_processed = True
+                document.chunks_count = len(chunks)
+                document.processed_at = datetime.utcnow()
+                
+                print(f"Documento procesado exitosamente: {len(chunks)} chunks creados")
+            else:
+                print("Error subiendo vectores a Pinecone")
+                document.processed_at = datetime.utcnow()
+            
+            await db.commit()
+            
+        except Exception as e:
+            print(f"Error procesando documento {document_id}: {str(e)}")
+            # Marcar como intentado (para evitar reprocesamiento infinito)
+            if document:
+                document.processed_at = datetime.utcnow()
+                try:
+                    await db.commit()
+                except:
+                    await db.rollback()

@@ -1,11 +1,7 @@
-"""
-Módulo de autenticación y autorización
-Contiene funciones de JWT, validación de usuarios y middleware de seguridad
-"""
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import Annotated, Optional
@@ -47,14 +43,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 # --------------- Funciones de Usuario ------------------
 
-def get_user_by_email(db: Session, email: str) -> Optional[UserModel]:
-    """Obtener usuario por email"""
-    return db.query(UserModel).filter(UserModel.email == email).first()
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[UserModel]:
+    """Obtener usuario por email (Async)"""
+    result = await db.execute(select(UserModel).where(UserModel.email == email))
+    return result.scalar_one_or_none()
 
 
-def authenticate_user(db: Session, email: str, password: str) -> Optional[UserModel]:
-    """Autenticar usuario con email y contraseña"""
-    user = get_user_by_email(db, email)
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[UserModel]:
+    """Autenticar usuario con email y contraseña (Async)"""
+    user = await get_user_by_email(db, email)
     if not user:
         return None
     if not verify_password(password, user.password_hash):
@@ -66,9 +63,9 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[UserMo
 
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)], 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> UserModel:
-    """Obtener usuario actual desde token JWT"""
+    """Obtener usuario actual desde token JWT (Async)"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudieron validar las credenciales",
@@ -83,7 +80,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
         
-    user = get_user_by_email(db, email=email)
+    user = await get_user_by_email(db, email=email)
     if user is None:
         raise credentials_exception
     return user

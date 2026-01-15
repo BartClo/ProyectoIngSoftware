@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc, func
 from typing import Annotated, List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 import os
+import logging
 
 from database import get_db
 from models import (
@@ -12,12 +14,15 @@ from models import (
     ChatbotAccess, 
     Conversation as ConversationModel,
     Message as MessageModel,
-    AccessLevel
+    AccessLevel,
+    ChatbotDocument
 )
 from auth import get_current_user
 from services.pinecone_service import pinecone_service
-from services.groq_service import groq_service  # Groq - ultrarrápido y confiable
+from services.groq_service import groq_service
 from services.embedding_service_pinecone import embedding_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat with RAG"])
 
@@ -56,14 +61,15 @@ class ConversationOut(BaseModel):
 async def verify_chatbot_access(
     chatbot_id: int,
     user: UserModel,
-    db: Session
+    db: AsyncSession
 ) -> CustomChatbot:
-    """Verifica que el usuario tenga acceso al chatbot"""
+    """Verifica que el usuario tenga acceso al chatbot (Async)"""
     
-    chatbot = db.query(CustomChatbot).filter(
+    result = await db.execute(select(CustomChatbot).where(
         CustomChatbot.id == chatbot_id,
         CustomChatbot.is_active == True
-    ).first()
+    ))
+    chatbot = result.scalar_one_or_none()
     
     if not chatbot:
         raise HTTPException(status_code=404, detail="Chatbot no encontrado o inactivo")
@@ -73,10 +79,11 @@ async def verify_chatbot_access(
         return chatbot
     
     # Verificar acceso otorgado
-    access_record = db.query(ChatbotAccess).filter(
+    result_access = await db.execute(select(ChatbotAccess).where(
         ChatbotAccess.chatbot_id == chatbot_id,
         ChatbotAccess.user_id == user.id
-    ).first()
+    ))
+    access_record = result_access.scalar_one_or_none()
     
     if not access_record:
         raise HTTPException(status_code=403, detail="No tiene acceso a este chatbot")
@@ -88,7 +95,7 @@ async def verify_chatbot_access(
 async def send_message_with_rag(
     payload: MessageCreate,
     current_user: Annotated[UserModel, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Enviar mensaje con búsqueda RAG en chatbot específico"""
     
@@ -115,11 +122,11 @@ async def send_message_with_rag(
     if is_greeting and len(user_text.split()) <= 3:
         files_info = ""
         if chatbot:
-            from models import ChatbotDocument
-            documents = db.query(ChatbotDocument).filter(
+            result = await db.execute(select(ChatbotDocument).where(
                 ChatbotDocument.chatbot_id == chatbot.id,
                 ChatbotDocument.is_processed == True
-            ).all()
+            ))
+            documents = result.scalars().all()
             
             if documents:
                 file_names = [doc.original_filename for doc in documents]
@@ -161,8 +168,7 @@ async def send_message_with_rag(
                 )
                 
                 # Filtrar resultados por score mínimo
-                # Usar umbral más alto para evitar falsos positivos
-                min_score = 0.70  # ✅ Score alto para asegurar relevancia real
+                min_score = 0.70
                 context_chunks = [
                     result for result in search_results 
                     if result.get("score", 0) >= min_score
@@ -170,31 +176,27 @@ async def send_message_with_rag(
                 
                 # Debug: mostrar scores de resultados
                 if search_results:
-                    print(f"🔍 Búsqueda RAG para: '{user_text}'")
+                    logger.info(f"🔍 Búsqueda RAG para: '{user_text}'")
                     for i, result in enumerate(search_results[:3]):
                         score = result.get('score', 0)
                         source = result.get('metadata', {}).get('source', 'N/A')
-                        print(f"   Resultado {i+1}: score={score:.3f}, fuente={source}")
-                    print(f"   ✅ {len(context_chunks)} chunks pasaron el umbral de {min_score}")
-                    if len(context_chunks) == 0 and search_results:
-                        max_score = max(r.get('score', 0) for r in search_results)
-                        print(f"   ⚠️ Score más alto ({max_score:.3f}) está por debajo del umbral - pregunta probablemente no relacionada")
+                        logger.info(f"   Resultado {i+1}: score={score:.3f}, fuente={source}")
+                    logger.info(f"   ✅ {len(context_chunks)} chunks pasaron el umbral de {min_score}")
                 
         except Exception as e:
-            print(f"Error en búsqueda RAG: {str(e)}")
-            # Continuar sin contexto en caso de error
+            logger.error(f"Error en búsqueda RAG: {str(e)}")
+            # Continuar sin contexto en caso de error (Graceful degradation)
     
     # Generar respuesta usando Groq (ultrarrápido y confiable)
     try:
         # Verificar si el chatbot tiene documentos cargados
         has_documents = False
         if chatbot:
-            from models import ChatbotDocument
-            doc_count = db.query(ChatbotDocument).filter(
+            doc_count_res = await db.execute(select(func.count(ChatbotDocument.id)).where(
                 ChatbotDocument.chatbot_id == chatbot.id,
                 ChatbotDocument.is_processed == True
-            ).count()
-            has_documents = doc_count > 0
+            ))
+            has_documents = doc_count_res.scalar() > 0
         
         response_data = await groq_service.generate_response(
             user_question=user_text,
@@ -211,7 +213,7 @@ async def send_message_with_rag(
             sources = []
             
     except Exception as e:
-        print(f"Error generando respuesta: {str(e)}")
+        logger.error(f"Error generando respuesta: {str(e)}")
         ai_response = "Lo siento, no pude procesar tu mensaje en este momento."
         sources = []
     
@@ -227,7 +229,7 @@ async def send_message_with_rag(
 async def create_conversation_with_chatbot(
     payload: ConversationCreate,
     current_user: Annotated[UserModel, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Crear nueva conversación, opcionalmente vinculada a un chatbot"""
     
@@ -255,18 +257,18 @@ async def create_conversation_with_chatbot(
     )
     
     db.add(conversation)
-    db.commit()
-    db.refresh(conversation)
+    await db.commit()
+    await db.refresh(conversation)
     
     # Mensaje de bienvenida
     if payload.with_welcome:
         if chatbot:
             # Obtener lista de documentos del chatbot
-            from models import ChatbotDocument
-            documents = db.query(ChatbotDocument).filter(
+            result = await db.execute(select(ChatbotDocument).where(
                 ChatbotDocument.chatbot_id == chatbot.id,
                 ChatbotDocument.is_processed == True
-            ).all()
+            ))
+            documents = result.scalars().all()
             
             if documents:
                 # Crear lista de nombres de archivos
@@ -275,7 +277,7 @@ async def create_conversation_with_chatbot(
                 
                 # Intentar obtener un resumen del contenido
                 try:
-                    # Hacer una búsqueda general para obtener contenido de los documentos
+                    # Hacer una búsqueda general
                     sample_embedding = await embedding_service.generate_query_embedding(
                         "resumen contenido principal documentos"
                     )
@@ -302,7 +304,7 @@ async def create_conversation_with_chatbot(
                             topics_text = f"\n\nEstos documentos contienen información sobre:\n" + "\n".join([f"• {t}" for t in topics_list])
                 
                 except Exception as e:
-                    print(f"Error obteniendo resumen de documentos: {str(e)}")
+                    logger.error(f"Error obteniendo resumen de documentos: {str(e)}")
                     topics_text = ""
                 
                 welcome_text = (
@@ -326,7 +328,7 @@ async def create_conversation_with_chatbot(
         )
         db.add(welcome_msg)
         conversation.updated_at = datetime.utcnow()
-        db.commit()
+        await db.commit()
     
     return ConversationOut(
         id=conversation.id,
@@ -343,20 +345,20 @@ async def send_message_to_conversation(
     payload: MessageCreate,
     current_user: Annotated[UserModel, Depends(get_current_user)],
     conversation_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Enviar mensaje a una conversación existente"""
     
     # Verificar que la conversación existe y el usuario tiene acceso
-    conversation = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id
-    ).first()
+    ))
+    conversation = result.scalar_one_or_none()
     
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     
     # Verificar acceso (propietario o participante)
-    # Por simplicidad, por ahora solo verificar propietario
     if conversation.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No tiene acceso a esta conversación")
     
@@ -377,7 +379,7 @@ async def send_message_to_conversation(
         text=user_text
     )
     db.add(user_msg)
-    db.commit()
+    await db.commit()
     
     chatbot = None
     chatbot_name = "Asistente General"
@@ -393,11 +395,11 @@ async def send_message_to_conversation(
         # Obtener lista de archivos si hay chatbot
         files_info = ""
         if chatbot:
-            from models import ChatbotDocument
-            documents = db.query(ChatbotDocument).filter(
+            result = await db.execute(select(ChatbotDocument).where(
                 ChatbotDocument.chatbot_id == chatbot.id,
                 ChatbotDocument.is_processed == True
-            ).all()
+            ))
+            documents = result.scalars().all()
             
             if documents:
                 file_names = [doc.original_filename for doc in documents]
@@ -414,7 +416,7 @@ async def send_message_to_conversation(
         )
         db.add(ai_msg)
         conversation.updated_at = datetime.utcnow()
-        db.commit()
+        await db.commit()
         
         return ChatResponse(
             response=greeting_response,
@@ -552,25 +554,27 @@ async def send_message_to_conversation(
 @router.get("/conversations", response_model=List[ConversationOut])
 async def list_user_conversations(
     current_user: Annotated[UserModel, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Listar conversaciones del usuario con información del chatbot"""
     
-    conversations = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.user_id == current_user.id
-    ).order_by(ConversationModel.updated_at.desc()).all()
+    ).order_by(desc(ConversationModel.updated_at)))
+    conversations = result.scalars().all()
     
-    result = []
+    result_list = []
     for conv in conversations:
         chatbot_name = None
         if conv.chatbot_id:
-            chatbot = db.query(CustomChatbot).filter(
+            res = await db.execute(select(CustomChatbot).where(
                 CustomChatbot.id == conv.chatbot_id
-            ).first()
+            ))
+            chatbot = res.scalar_one_or_none()
             if chatbot:
                 chatbot_name = chatbot.title
         
-        result.append(ConversationOut(
+        result_list.append(ConversationOut(
             id=conv.id,
             title=conv.title,
             created_at=conv.created_at,
@@ -579,28 +583,30 @@ async def list_user_conversations(
             chatbot_name=chatbot_name
         ))
     
-    return result
+    return result_list
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[MessageOut])
 async def get_conversation_messages(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     conversation_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Obtener mensajes de una conversación"""
     
-    conversation = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id,
         ConversationModel.user_id == current_user.id
-    ).first()
+    ))
+    conversation = result.scalar_one_or_none()
     
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     
-    messages = db.query(MessageModel).filter(
+    res_msgs = await db.execute(select(MessageModel).where(
         MessageModel.conversation_id == conversation_id
-    ).order_by(MessageModel.created_at.asc()).all()
+    ).order_by(MessageModel.created_at.asc()))
+    messages = res_msgs.scalars().all()
     
     return [
         MessageOut(
@@ -615,31 +621,38 @@ async def get_conversation_messages(
 
 
 @router.get("/available-chatbots")
+@router.get("/available-chatbots")
 async def get_available_chatbots(
     current_user: Annotated[UserModel, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Obtener lista de chatbots disponibles para el usuario"""
     
     # Chatbots creados por el usuario
-    owned_chatbots = db.query(CustomChatbot).filter(
+    result_owned = await db.execute(select(CustomChatbot).where(
         CustomChatbot.created_by == current_user.id,
         CustomChatbot.is_active == True
-    ).all()
+    ))
+    owned_chatbots = result_owned.scalars().all()
     
     # Chatbots con acceso otorgado
-    access_records = db.query(ChatbotAccess).filter(
+    result_access = await db.execute(select(ChatbotAccess).where(
         ChatbotAccess.user_id == current_user.id
-    ).all()
+    ))
+    access_records = result_access.scalars().all()
     
     accessible_ids = [access.chatbot_id for access in access_records]
-    accessible_chatbots = db.query(CustomChatbot).filter(
-        CustomChatbot.id.in_(accessible_ids),
-        CustomChatbot.is_active == True
-    ).all() if accessible_ids else []
+    accessible_chatbots = []
+    
+    if accessible_ids:
+        result_accessible = await db.execute(select(CustomChatbot).where(
+            CustomChatbot.id.in_(accessible_ids),
+            CustomChatbot.is_active == True
+        ))
+        accessible_chatbots = result_accessible.scalars().all()
     
     # Combinar y eliminar duplicados
-    all_chatbots = {cb.id: cb for cb in owned_chatbots + accessible_chatbots}.values()
+    all_chatbots = {cb.id: cb for cb in list(owned_chatbots) + list(accessible_chatbots)}.values()
     
     return [
         {
@@ -653,36 +666,38 @@ async def get_available_chatbots(
 
 
 @router.delete("/conversations/{conversation_id}")
+@router.delete("/conversations/{conversation_id}")
 async def delete_conversation(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     conversation_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Eliminar una conversación y todos sus mensajes"""
     
     # Verificar que la conversación existe y el usuario tiene acceso
-    conversation = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id,
         ConversationModel.user_id == current_user.id
-    ).first()
+    ))
+    conversation = result.scalar_one_or_none()
     
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     
     try:
         # Eliminar todos los mensajes de la conversación
-        db.query(MessageModel).filter(
+        await db.execute(delete(MessageModel).where(
             MessageModel.conversation_id == conversation_id
-        ).delete()
+        ))
         
         # Eliminar la conversación
-        db.delete(conversation)
-        db.commit()
+        await db.delete(conversation)
+        await db.commit()
         
         return {"message": "Conversación eliminada exitosamente"}
         
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=500, 
             detail=f"Error eliminando conversación: {str(e)}"
@@ -690,17 +705,19 @@ async def delete_conversation(
 
 
 @router.get("/conversations/{conversation_id}/exists")
+@router.get("/conversations/{conversation_id}/exists")
 async def check_conversation_exists(
     current_user: Annotated[UserModel, Depends(get_current_user)],
     conversation_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Verificar si una conversación existe y el usuario tiene acceso"""
     
-    conversation = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id,
         ConversationModel.user_id == current_user.id
-    ).first()
+    ))
+    conversation = result.scalar_one_or_none()
     
     return {"exists": conversation is not None}
 
@@ -710,15 +727,16 @@ async def update_conversation(
     payload: dict,
     current_user: Annotated[UserModel, Depends(get_current_user)],
     conversation_id: int = Path(..., ge=1),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Actualizar título de una conversación"""
     
     # Verificar que la conversación existe y el usuario tiene acceso
-    conversation = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id,
         ConversationModel.user_id == current_user.id
-    ).first()
+    ))
+    conversation = result.scalar_one_or_none()
     
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
@@ -727,15 +745,16 @@ async def update_conversation(
     if "title" in payload:
         conversation.title = payload["title"]
         conversation.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(conversation)
+        await db.commit()
+        await db.refresh(conversation)
     
     # Obtener nombre del chatbot si aplica
     chatbot_name = None
     if conversation.chatbot_id:
-        chatbot = db.query(CustomChatbot).filter(
+        result_cb = await db.execute(select(CustomChatbot).where(
             CustomChatbot.id == conversation.chatbot_id
-        ).first()
+        ))
+        chatbot = result_cb.scalar_one_or_none()
         if chatbot:
             chatbot_name = chatbot.title
     

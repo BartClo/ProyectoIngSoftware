@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List, Dict, Any, Optional
-from groq import Groq
+from groq import AsyncGroq
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,8 +27,8 @@ class GroqService:
         # Log para verificar que la key se está cargando (solo primeros y últimos caracteres por seguridad)
         logger.info(f"API Key cargada: {api_key[:10]}...{api_key[-10:] if len(api_key) > 20 else 'corta'}")
         
-        # Inicializar cliente Groq
-        self.client = Groq(api_key=api_key)
+        # Inicializar cliente Groq ASÍNCRONO
+        self.client = AsyncGroq(api_key=api_key)
         
         self.model_name = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
         logger.info(f"Modelo Groq configurado: {self.model_name}")
@@ -227,7 +227,7 @@ Responde de manera clara y educativa."""
         """
         for attempt in range(max_retries):
             try:
-                chat_completion = self.client.chat.completions.create(
+                chat_completion = await self.client.chat.completions.create(
                     messages=messages,
                     model=self.model_name,
                     temperature=self.generation_config['temperature'],
@@ -284,7 +284,7 @@ TÍTULO:"""
                 }
             ]
 
-            chat_completion = self.client.chat.completions.create(
+            chat_completion = await self.client.chat.completions.create(
                 messages=messages,
                 model=self.model_name,
                 temperature=0.3,  # Más determinístico para títulos
