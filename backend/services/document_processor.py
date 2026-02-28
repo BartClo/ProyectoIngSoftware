@@ -8,6 +8,8 @@ import markdown
 import re
 from datetime import datetime
 from dotenv import load_dotenv
+import asyncio
+from functools import partial
 
 load_dotenv()
 
@@ -67,9 +69,13 @@ class DocumentProcessor:
             logger.error(f"Error obteniendo info del archivo {file_path}: {str(e)}")
             return {}
     
-    async def extract_text_from_pdf(self, file_path: str) -> Dict[str, Any]:
+    async def _run_in_executor(self, func, *args, **kwargs):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, partial(func, *args, **kwargs))
+
+    def extract_text_from_pdf(self, file_path: str) -> Dict[str, Any]:
         """
-        Extrae texto de un archivo PDF
+        Extrae texto de un archivo PDF (Sync)
         
         Args:
             file_path: Ruta del archivo PDF
@@ -119,9 +125,9 @@ class DocumentProcessor:
                 "error": str(e)
             }
     
-    async def extract_text_from_docx(self, file_path: str) -> Dict[str, Any]:
+    def extract_text_from_docx(self, file_path: str) -> Dict[str, Any]:
         """
-        Extrae texto de un archivo DOCX
+        Extrae texto de un archivo DOCX (Sync)
         
         Args:
             file_path: Ruta del archivo DOCX
@@ -162,9 +168,9 @@ class DocumentProcessor:
                 "error": str(e)
             }
     
-    async def extract_text_from_txt(self, file_path: str) -> Dict[str, Any]:
+    def extract_text_from_txt(self, file_path: str) -> Dict[str, Any]:
         """
-        Extrae texto de un archivo TXT
+        Extrae texto de un archivo TXT (Sync)
         
         Args:
             file_path: Ruta del archivo TXT
@@ -206,9 +212,9 @@ class DocumentProcessor:
                 "error": str(e)
             }
     
-    async def extract_text_from_markdown(self, file_path: str) -> Dict[str, Any]:
+    def extract_text_from_markdown(self, file_path: str) -> Dict[str, Any]:
         """
-        Extrae texto de un archivo Markdown
+        Extrae texto de un archivo Markdown (Sync)
         
         Args:
             file_path: Ruta del archivo MD
@@ -245,7 +251,7 @@ class DocumentProcessor:
     
     async def extract_text_from_file(self, file_path: str) -> Dict[str, Any]:
         """
-        Extrae texto de un archivo según su extensión
+        Extrae texto de un archivo según su extensión (Async)
         
         Args:
             file_path: Ruta del archivo
@@ -260,13 +266,13 @@ class DocumentProcessor:
         extension = file_info.get("extension", "").lower()
         
         if extension == ".pdf":
-            return await self.extract_text_from_pdf(file_path)
+            return await self._run_in_executor(self.extract_text_from_pdf, file_path)
         elif extension == ".docx":
-            return await self.extract_text_from_docx(file_path)
+            return await self._run_in_executor(self.extract_text_from_docx, file_path)
         elif extension == ".txt":
-            return await self.extract_text_from_txt(file_path)
+            return await self._run_in_executor(self.extract_text_from_txt, file_path)
         elif extension == ".md":
-            return await self.extract_text_from_markdown(file_path)
+            return await self._run_in_executor(self.extract_text_from_markdown, file_path)
         else:
             return {
                 "success": False,

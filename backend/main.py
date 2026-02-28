@@ -6,8 +6,8 @@ Sistema de chatbots personalizados con procesamiento de documentos
 from fastapi import FastAPI, Depends, HTTPException, status, Path, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select, delete, update
 from typing import Annotated, List, Optional
 import hashlib
 from fastapi import UploadFile, File
@@ -17,11 +17,13 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
 import logging
+import contextlib
 
 # Cargar variables de entorno
 load_dotenv()
 
 # Configurar logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Importaciones de base de datos y modelos
@@ -44,11 +46,22 @@ from auth import (
     get_user_by_email
 )
 
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Crear tablas
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Startup complete - Database tables created/verified")
+    yield
+    # Shutdown
+    logger.info("Shutdown complete")
+
 # Crear aplicación FastAPI
 app = FastAPI(
     title="Chatbot USS API",
     description="API para el Chatbot de la Universidad San Sebastián con RAG",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Configuración CORS
@@ -76,9 +89,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Crear tablas en la base de datos
-Base.metadata.create_all(bind=engine)
 
 # Incluir rutas del sistema RAG
 from routes.chatbots import router as chatbots_router
@@ -178,30 +188,30 @@ async def chatbot_info():
 # --------------- Endpoints Autenticación ------------------
 
 @app.post("/register/", status_code=201)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
+async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     """Registrar nuevo usuario"""
     try:
-        db_user = get_user_by_email(db, user.email)
+        db_user = await get_user_by_email(db, user.email)
         if db_user:
             raise HTTPException(status_code=400, detail="Email ya registrado")
         
         hashed_password = get_password_hash(user.password)
         new_user = UserModel(email=user.email, password_hash=hashed_password)
         db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        await db.commit()
+        await db.refresh(new_user)
         return {"message": "Usuario registrado exitosamente"}
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(status_code=400, detail="Email ya registrado")
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error al registrar usuario: {str(e)}")
 
 @app.post("/login/", response_model=Token)
-def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(get_db)):
+async def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: AsyncSession = Depends(get_db)):
     """Iniciar sesión de usuario"""
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -213,12 +223,14 @@ def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: S
 # --------------- Endpoints Administración de Usuarios ------------------
 
 @app.get("/admin/users/")
-def admin_list_users(
+@app.get("/admin/users/")
+async def admin_list_users(
     current_user: Annotated[UserModel, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Listar usuarios (endpoint administrativo)"""
-    users = db.query(UserModel).order_by(UserModel.email.asc()).all()
+    result = await db.execute(select(UserModel).order_by(UserModel.email.asc()))
+    users = result.scalars().all()
     return [
         {
             "id": u.id, 
@@ -230,10 +242,11 @@ def admin_list_users(
     ]
 
 @app.post("/admin/users/", status_code=201)
-def admin_create_user(
+@app.post("/admin/users/", status_code=201)
+async def admin_create_user(
     payload: AdminCreateUser, 
     current_user: Annotated[UserModel, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Crear usuario desde panel administrativo"""
     hashed = get_password_hash(payload.password)
@@ -245,35 +258,39 @@ def admin_create_user(
     )
     try:
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(status_code=400, detail="Email ya registrado")
     return {"id": user.id, "email": user.email, "nombre": user.nombre}
 
 @app.delete('/admin/users/{user_id}/', status_code=204)
-def admin_delete_user(
+@app.delete('/admin/users/{user_id}/', status_code=204)
+async def admin_delete_user(
     user_id: int, 
     current_user: Annotated[UserModel, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Eliminar usuario por id (endpoint administrativo)"""
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    result = await db.execute(select(UserModel).filter(UserModel.id == user_id))
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail='Usuario no encontrado')
-    db.delete(user)
-    db.commit()
+    await db.delete(user)
+    await db.commit()
 
 @app.patch('/admin/users/{user_id}/password', status_code=200)
-def admin_update_user_password(
+@app.patch('/admin/users/{user_id}/password', status_code=200)
+async def admin_update_user_password(
     user_id: int,
     payload: dict,
     current_user: Annotated[UserModel, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Actualizar contraseña de un usuario (endpoint administrativo)"""
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    result = await db.execute(select(UserModel).filter(UserModel.id == user_id))
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail='Usuario no encontrado')
     
@@ -286,7 +303,7 @@ def admin_update_user_password(
         raise HTTPException(status_code=400, detail='La contraseña debe tener al menos 6 caracteres')
     
     user.password_hash = get_password_hash(new_password)
-    db.commit()
+    await db.commit()
     
     return {"message": "Contraseña actualizada exitosamente"}
 
@@ -298,7 +315,7 @@ async def admin_create_conversation(
     users: str = Form(""),
     files: List[UploadFile] = File(default=[]),
     current_user: Annotated[UserModel, Depends(get_current_user)] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Crear conversación desde panel administrativo"""
     conv = ConversationModel(
@@ -306,21 +323,23 @@ async def admin_create_conversation(
         title=title.strip() or "Nueva conversación"
     )
     db.add(conv)
-    db.commit()
-    db.refresh(conv)
+    await db.commit()
+    await db.refresh(conv)
 
     # Agregar participantes (emails separados por comas)
     emails = [e.strip() for e in users.split(",") if e.strip()]
     inserted_emails = []
     inserted_ids = []
+    
     for email in emails:
-        u = db.query(UserModel).filter(func.lower(UserModel.email) == email.lower()).first()
+        result = await db.execute(select(UserModel).where(func.lower(UserModel.email) == email.lower()))
+        u = result.scalar_one_or_none()
         if u:
             cp = ConversationParticipantModel(conversation_id=conv.id, user_id=u.id)
             db.add(cp)
             inserted_emails.append(u.email)
             inserted_ids.append(u.id)
-    db.commit()
+    await db.commit()
 
     # Guardar archivos adjuntos
     upload_dir = os.path.join(os.path.dirname(__file__), "uploads", str(conv.id))
@@ -329,13 +348,14 @@ async def admin_create_conversation(
     
     for f in files:
         dest = os.path.join(upload_dir, f.filename)
+        # TODO: Use aiofiles for non-blocking I/O
         with open(dest, "wb") as out:
             content = await f.read()
             out.write(content)
         att = AttachmentModel(conversation_id=conv.id, filename=f.filename, path=dest)
         db.add(att)
-        db.commit()
-        db.refresh(att)
+        await db.commit()
+        await db.refresh(att)
         files_info.append({"filename": f.filename, "path": dest, "id": att.id})
 
     # Insertar mensaje de bienvenida
@@ -344,10 +364,10 @@ async def admin_create_conversation(
         welcome_msg = MessageModel(conversation_id=conv.id, sender="ai", text=welcome_text)
         db.add(welcome_msg)
         conv.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(conv)
+        await db.commit()
+        await db.refresh(conv)
     except Exception:
-        db.rollback()
+        await db.rollback()
 
     return {
         "id": conv.id, 
@@ -359,26 +379,31 @@ async def admin_create_conversation(
     }
 
 @app.get("/admin/conversations/")
-def admin_list_conversations(
+async def admin_list_conversations(
     current_user: Annotated[UserModel, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Listar conversaciones con participantes y archivos"""
-    convs = db.query(ConversationModel).order_by(ConversationModel.updated_at.desc()).all()
+    result = await db.execute(select(ConversationModel).order_by(ConversationModel.updated_at.desc()))
+    convs = result.scalars().all()
     out = []
     for c in convs:
         # Obtener participantes
-        parts = db.query(ConversationParticipantModel).filter(
+        res_parts = await db.execute(select(ConversationParticipantModel).where(
             ConversationParticipantModel.conversation_id == c.id
-        ).all()
+        ))
+        parts = res_parts.scalars().all()
+        
         emails = []
         for p in parts:
-            u = db.query(UserModel).filter(UserModel.id == p.user_id).first()
+            res_u = await db.execute(select(UserModel).where(UserModel.id == p.user_id))
+            u = res_u.scalar_one_or_none()
             if u:
                 emails.append(u.email)
         
         # Obtener archivos adjuntos
-        atts = db.query(AttachmentModel).filter(AttachmentModel.conversation_id == c.id).all()
+        res_atts = await db.execute(select(AttachmentModel).where(AttachmentModel.conversation_id == c.id))
+        atts = res_atts.scalars().all()
         files = [{"filename": a.filename, "path": a.path} for a in atts]
         
         out.append({
@@ -391,20 +416,21 @@ def admin_list_conversations(
     return out
 
 @app.delete('/admin/conversations/{conversation_id}/', status_code=204)
-def admin_delete_conversation(
+async def admin_delete_conversation(
     conversation_id: int = Path(..., ge=1), 
     current_user: Annotated[UserModel, Depends(get_current_user)] = None, 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Eliminar conversación desde panel administrativo"""
-    conv = db.query(ConversationModel).filter(ConversationModel.id == conversation_id).first()
+    result = await db.execute(select(ConversationModel).where(ConversationModel.id == conversation_id))
+    conv = result.scalar_one_or_none()
     if not conv:
         return  # Idempotente: ya eliminada
     try:
-        db.delete(conv)
-        db.commit()
+        await db.delete(conv)
+        await db.commit()
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(status_code=500, detail='Error eliminando conversación')
 
 # --------------- Endpoints Archivos Adjuntos ------------------
@@ -414,10 +440,11 @@ async def add_conversation_attachments(
     conversation_id: int = Path(..., ge=1), 
     files: List[UploadFile] = File(default=[]), 
     current_user: Annotated[UserModel, Depends(get_current_user)] = None, 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Agregar archivos adjuntos a conversación"""
-    conv = db.query(ConversationModel).filter(ConversationModel.id == conversation_id).first()
+    result = await db.execute(select(ConversationModel).where(ConversationModel.id == conversation_id))
+    conv = result.scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=404, detail='Conversación no encontrada')
 
@@ -432,14 +459,14 @@ async def add_conversation_attachments(
             out.write(content)
         att = AttachmentModel(conversation_id=conv.id, filename=f.filename, path=dest)
         db.add(att)
-        db.commit()
-        db.refresh(att)
+        await db.commit()
+        await db.refresh(att)
         files_info.append({'filename': f.filename, 'path': dest, 'id': att.id})
     
     try:
-        db.commit()
+        await db.commit()
     except Exception:
-        db.rollback()
+        await db.rollback()
     return {'files': files_info}
 
 # --------------- Endpoints Conversaciones (Compatibilidad) ------------------
@@ -467,16 +494,16 @@ class MessageOut(BaseModel):
 @app.get("/conversations/", response_model=List[ConversationOut])
 async def get_conversations(
     current_user: Annotated[UserModel, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Compatibilidad: listar conversaciones del usuario"""
     # Solo conversaciones creadas por el usuario (sin participantes por ahora)
-    items = (
-        db.query(ConversationModel)
-        .filter(ConversationModel.user_id == current_user.id)
+    result = await db.execute(
+        select(ConversationModel)
+        .where(ConversationModel.user_id == current_user.id)
         .order_by(ConversationModel.updated_at.desc())
-        .all()
     )
+    items = result.scalars().all()
     return [
         ConversationOut(
             id=i.id, title=i.title, created_at=i.created_at, updated_at=i.updated_at
@@ -488,7 +515,7 @@ async def get_conversations(
 async def create_conversation(
     payload: ConversationCreate, 
     current_user: Annotated[UserModel, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Compatibilidad: crear nueva conversación"""
     conv = ConversationModel(
@@ -496,8 +523,8 @@ async def create_conversation(
         title=payload.title or "Nueva conversación"
     )
     db.add(conv)
-    db.commit()
-    db.refresh(conv)
+    await db.commit()
+    await db.refresh(conv)
 
     # Mensaje de bienvenida opcional
     if payload.with_welcome:
@@ -505,8 +532,8 @@ async def create_conversation(
         msg = MessageModel(conversation_id=conv.id, sender="ai", text=welcome_text)
         db.add(msg)
         conv.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(conv)
+        await db.commit()
+        await db.refresh(conv)
 
     return ConversationOut(
         id=conv.id, title=conv.title, created_at=conv.created_at, updated_at=conv.updated_at
@@ -516,23 +543,25 @@ async def create_conversation(
 async def get_conversation_messages(
     conversation_id: int = Path(..., ge=1), 
     current_user: Annotated[UserModel, Depends(get_current_user)] = None, 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Compatibilidad: obtener mensajes de conversación"""
-    conv = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id,
         ConversationModel.user_id == current_user.id
-    ).first()
+    ))
+    conv = result.scalar_one_or_none()
     
     if not conv:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     
-    msgs = (
-        db.query(MessageModel)
-        .filter(MessageModel.conversation_id == conversation_id)
+    res_msgs = await db.execute(
+        select(MessageModel)
+        .where(MessageModel.conversation_id == conversation_id)
         .order_by(MessageModel.created_at.asc())
-        .all()
     )
+    msgs = res_msgs.scalars().all()
+
     return [
         MessageOut(id=m.id, sender=m.sender, text=m.text, created_at=m.created_at) 
         for m in msgs
@@ -542,19 +571,20 @@ async def get_conversation_messages(
 async def delete_conversation(
     conversation_id: int = Path(..., ge=1),
     current_user: Annotated[UserModel, Depends(get_current_user)] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Compatibilidad: eliminar conversación"""
-    conv = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id, 
         ConversationModel.user_id == current_user.id
-    ).first()
+    ))
+    conv = result.scalar_one_or_none()
     
     if not conv:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     
-    db.delete(conv)
-    db.commit()
+    await db.delete(conv)
+    await db.commit()
 
 class MessageCreate(BaseModel):
     text: str
@@ -568,13 +598,14 @@ async def send_message_to_conversation(
     payload: MessageCreate,
     conversation_id: int = Path(..., ge=1),
     current_user: Annotated[UserModel, Depends(get_current_user)] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Compatibilidad: enviar mensaje a conversación (modo simple sin RAG)"""
-    conv = db.query(ConversationModel).filter(
+    result = await db.execute(select(ConversationModel).where(
         ConversationModel.id == conversation_id,
         ConversationModel.user_id == current_user.id
-    ).first()
+    ))
+    conv = result.scalar_one_or_none()
     
     if not conv:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
@@ -586,7 +617,7 @@ async def send_message_to_conversation(
     # Guardar mensaje del usuario
     user_msg = MessageModel(conversation_id=conv.id, sender="user", text=user_text)
     db.add(user_msg)
-    db.commit()
+    await db.commit()
 
     # Generar respuesta simple (sin RAG)
     # TODO: En el futuro, integrar con el sistema RAG completo
@@ -607,18 +638,18 @@ async def send_message_to_conversation(
     ai_msg = MessageModel(conversation_id=conv.id, sender="ai", text=ai_text)
     db.add(ai_msg)
     conv.updated_at = datetime.utcnow()
-    db.commit()
+    await db.commit()
 
     return ChatResponse(response=ai_text, sources=[])
 
 # --------------- Endpoints Reportes ------------------
 
 @app.post('/reports/', status_code=201)
-def create_report(
+async def create_report(
     payload: ReportCreate, 
     conversation_id: Optional[int] = None, 
     current_user: Annotated[UserModel, Depends(get_current_user)] = None, 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Crear reporte"""
     r = ReportModel(
@@ -628,8 +659,8 @@ def create_report(
         comment=payload.comment
     )
     db.add(r)
-    db.commit()
-    db.refresh(r)
+    await db.commit()
+    await db.refresh(r)
     return {
         'id': r.id, 
         'conversation_id': r.conversation_id, 
@@ -641,17 +672,19 @@ def create_report(
     }
 
 @app.get('/admin/reports/')
-def admin_list_reports(
+async def admin_list_reports(
     current_user: Annotated[UserModel, Depends(get_current_user)] = None, 
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Listar reportes (panel administrativo)"""
-    rows = db.query(ReportModel).order_by(ReportModel.created_at.desc()).all()
+    result = await db.execute(select(ReportModel).order_by(ReportModel.created_at.desc()))
+    rows = result.scalars().all()
     out = []
     for row in rows:
         u = None
         if row.user_id:
-            u = db.query(UserModel).filter(UserModel.id == row.user_id).first()
+            res_u = await db.execute(select(UserModel).where(UserModel.id == row.user_id))
+            u = res_u.scalar_one_or_none()
         out.append({
             'id': row.id, 
             'docente': u.nombre if u else None, 

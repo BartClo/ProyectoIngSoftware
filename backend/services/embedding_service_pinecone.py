@@ -2,6 +2,8 @@ import os
 import logging
 from typing import List
 from pinecone import Pinecone
+import asyncio
+from functools import partial
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,22 +31,22 @@ class EmbeddingServicePinecone:
         
         logger.info(f"EmbeddingServicePinecone inicializado con modelo: {self.model_name}")
     
+    async def _run_in_executor(self, func, *args, **kwargs):
+        """Ejecuta una función bloqueante en un executor thread pool"""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, partial(func, *args, **kwargs))
+
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
-        Genera embeddings usando Pinecone Inference API
-        
-        Args:
-            texts: Lista de textos
-            
-        Returns:
-            Lista de vectores de embeddings
+        Genera embeddings usando Pinecone Inference API (Async)
         """
         try:
             if not texts:
                 return []
             
             # Usar Pinecone Inference API
-            embeddings = self.pc.inference.embed(
+            embeddings = await self._run_in_executor(
+                self.pc.inference.embed,
                 model=self.model_name,
                 inputs=texts,
                 parameters={"input_type": "passage"}
@@ -62,17 +64,12 @@ class EmbeddingServicePinecone:
     
     async def generate_query_embedding(self, query: str) -> List[float]:
         """
-        Genera embedding para una consulta
-        
-        Args:
-            query: Texto de la consulta
-            
-        Returns:
-            Vector de embedding
+        Genera embedding para una consulta (Async)
         """
         try:
             # Usar Pinecone Inference API con input_type query
-            embeddings = self.pc.inference.embed(
+            embeddings = await self._run_in_executor(
+                self.pc.inference.embed,
                 model=self.model_name,
                 inputs=[query],
                 parameters={"input_type": "query"}
